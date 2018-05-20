@@ -1,16 +1,19 @@
-'use-strict';
+'use strict';
 
-const koa = require('koa');
+const Koa = require('koa');
 const body = require('koa-bodyparser');
+const staticServer = require('koa-static');
 const uuid = require('uuid');
 
 const router = require('./router');
 const config = global.config = require('./lib/config');
 const logger = global.logger = require('./lib/logger');
 
-const app = new koa();
+const app = new Koa();
 
 app.use(body());
+
+app.use(staticServer(`${__dirname}/www`));
 
 app.use((ctx, next) => {
   const __requestid = ctx.request.query.__requestid || ctx.request.body.__requestid ||
@@ -28,4 +31,4 @@ app.use((ctx, next) => {
 });
 
 app.use(router.routes());
-app.listen(config.httpPort);
+app.listen(config.httpPort || 8080);
