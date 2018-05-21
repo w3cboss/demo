@@ -5,9 +5,11 @@ const body = require('koa-bodyparser');
 const staticServer = require('koa-static');
 const uuid = require('uuid');
 
-const router = require('./router');
 const config = global.config = require('./lib/config');
 const logger = global.logger = require('./lib/logger');
+const redis = require('./lib/redis');
+
+const router = require('./router');
 
 const app = new Koa();
 
