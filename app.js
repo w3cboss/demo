@@ -1,36 +1,18 @@
 'use strict';
 
-const Koa = require('koa');
-const body = require('koa-bodyparser');
-const staticServer = require('koa-static');
-const uuid = require('uuid');
-
 const config = global.config = require('./lib/config');
 const logger = global.logger = require('./lib/logger');
 const redis = require('./lib/redis');
+const app = require('./http');
 
-const router = require('./router');
+//初始化服务
+async function init() {
+  await Promise.all([redis.connectSucceed, app.init])
+    .then(() => logger.debug('all services load successfully!'))
+    .catch(err => {
+      logger.error(`error occur while loading service! ${err}`);
+      process.exit(1);
+    });
+}
 
-const app = new Koa();
-
-app.use(body());
-
-app.use(staticServer(`${__dirname}/www`));
-
-app.use((ctx, next) => {
-  const __requestid = ctx.request.query.__requestid || ctx.request.body.__requestid ||
-    uuid.v1().replace(/\W/g, '');
-
-  const params = Object.assign({}, ctx.request.query, ctx.request.body);
-  ctx.params = params;
-  ctx.__requestid = __requestid;
-
-  ctx.endfor = (code, msg, data) => {
-    ctx.body = { code, msg, data, __requestid };
-  };
-
-  next();
-});
-
-app.use(router.routes());
-app.listen(config.httpPort || 8080);
+init();
