@@ -8,7 +8,11 @@ const test = require('../controller/test');
 const router = new Router();
 router.all('/test/hi', test.hi);
 
-router.post('/upload/image', multer.image.single('img'), ctx => {
+router.post('/upload/image', (ctx, next) =>{
+  const f = ctx.request.file;
+  console.log('mid');
+  next();
+}, multer.image.single('img'), ctx => {
   const f = ctx.req.file;
   ctx.endfor(0);
 });
