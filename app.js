@@ -9,7 +9,7 @@ const app = require('./http');
 //初始化服务
 async function init() {
   await Promise.all([redis.connectSucceed, mysql.connectSucceed, app.init])
-    .then(() => logger.debug('all services load successfully!'))
+    .then(() => logger.trace('all services load successfully!'))
     .catch(err => {
       logger.error(`error occur while loading service! ${err}`);
       process.exit(1);

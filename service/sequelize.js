@@ -1,6 +1,10 @@
 'use strict';
 
 const Sequelize = require('sequelize');
+const cls = require('continuation-local-storage');
+
+const namespace = cls.createNamespace('default');
+Sequelize.useCLS(namespace);
 
 function createInstance(uri, options) {
   // options.logging = msg => logger.debug(msg);

@@ -1,5 +1,5 @@
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define("User",
+  return sequelize.define("Level",
     {
       Id: {
         type: DataTypes.INTEGER,
@@ -8,26 +8,15 @@ module.exports = function (sequelize, DataTypes) {
         primaryKey: true,
         autoIncrement: true
       },
-      Number: {
-        type: DataTypes.INTEGER,
-        field: 'number',
-        allowNull: false,
-        comment: ''
-      },
       Name: {
         type: DataTypes.STRING(16),
         field: 'name',
         allowNull: false,
         comment: ''
       },
-      Avater: {
-        type: DataTypes.STRING(128),
-        field: 'avater',
-        comment: ''
-      },
-      DeptId: {
+      Rank: {
         type: DataTypes.TINYINT,
-        field: 'department_id',
+        field: 'rank',
         allowNull: false,
         comment: ''
       },
@@ -37,18 +26,11 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         defaultValue: 0,
         comment: ''
-      },
-      IsAdmin: {
-        type: DataTypes.TINYINT,
-        field: 'is_admin',
-        allowNull: false,
-        defaultValue: 0,
-        comment: ''      
       }
     },
     {
       freezeTableName: true,
-      tableName: 'user',
+      tableName: 'level',
       createdAt: 'create_time',
       updatedAt: 'last_time',
       comment: ''

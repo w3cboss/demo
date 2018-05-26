@@ -1,5 +1,5 @@
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define("User",
+  return sequelize.define("Attach",
     {
       Id: {
         type: DataTypes.INTEGER,
@@ -8,26 +8,33 @@ module.exports = function (sequelize, DataTypes) {
         primaryKey: true,
         autoIncrement: true
       },
-      Number: {
+      PostId: {
         type: DataTypes.INTEGER,
-        field: 'number',
+        field: 'post_id',
         allowNull: false,
         comment: ''
       },
-      Name: {
-        type: DataTypes.STRING(16),
-        field: 'name',
+      UserId: {
+        type: DataTypes.INTEGER,
+        field: 'user_id',
         allowNull: false,
         comment: ''
       },
-      Avater: {
+      Title: {
         type: DataTypes.STRING(128),
-        field: 'avater',
+        field: 'title',
+        allowNull: false,
         comment: ''
       },
-      DeptId: {
+      Url: {
+        type: DataTypes.STRING(128),
+        field: 'url',
+        allowNull: false,
+        comment: ''
+      },
+      Rank: {
         type: DataTypes.TINYINT,
-        field: 'department_id',
+        field: 'rank',
         allowNull: false,
         comment: ''
       },
@@ -37,18 +44,11 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         defaultValue: 0,
         comment: ''
-      },
-      IsAdmin: {
-        type: DataTypes.TINYINT,
-        field: 'is_admin',
-        allowNull: false,
-        defaultValue: 0,
-        comment: ''      
       }
     },
     {
       freezeTableName: true,
-      tableName: 'user',
+      tableName: 'attachment',
       createdAt: 'create_time',
       updatedAt: 'last_time',
       comment: ''

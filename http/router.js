@@ -4,9 +4,11 @@ const Router = require('koa-router');
 const multer = require('./multer');
 
 const test = require('../controller/test');
+const admin = require('../controller/admin');
 
 const router = new Router();
 router.all('/test/hi', test.hi);
+router.all('/admin/addlevel', admin.addLevel);
 
 router.post('/upload/image', (ctx, next) =>{
   const f = ctx.request.file;

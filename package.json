@@ -9,6 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bluebird": "^3.5.1",
+    "continuation-local-storage": "^3.2.1",
     "ioredis": "^3.2.2",
     "koa": "^2.5.1",
     "koa-bodyparser": "^4.2.0",
@@ -16,6 +18,7 @@
     "koa-router": "^7.4.0",
     "koa-static": "^4.0.3",
     "lodash": "^4.17.10",
+    "log4js": "^2.7.0",
     "mysql2": "^1.5.3",
     "sequelize": "^4.37.7",
     "winston": "^2.4.2",
