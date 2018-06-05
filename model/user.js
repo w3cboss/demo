@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define("User",
     {
@@ -9,7 +11,7 @@ module.exports = function (sequelize, DataTypes) {
         autoIncrement: true
       },
       Number: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.STRING(32),
         field: 'number',
         allowNull: false,
         comment: ''
@@ -17,6 +19,18 @@ module.exports = function (sequelize, DataTypes) {
       Name: {
         type: DataTypes.STRING(16),
         field: 'name',
+        allowNull: false,
+        comment: ''
+      },
+      Pass: {
+        type: DataTypes.STRING(32),
+        field: 'pass',
+        allowNull: false,
+        comment: ''
+      },
+      Key: {
+        type: DataTypes.STRING(48),
+        field: 'key',
         allowNull: false,
         comment: ''
       },
