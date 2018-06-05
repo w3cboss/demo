@@ -1,7 +1,7 @@
 'use strict';
 
-const config = global.config = require('./lib/config');
-const logger = global.logger = require('./lib/logger');
+const config = global.config = require('./config');
+const logger = global.logger = require('./logger');
 const redis = require('./lib/redis');
 const mysql = require('./lib/mysql');
 const app = require('./http');

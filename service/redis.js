@@ -2,8 +2,8 @@
 
 const ioredis = require('ioredis');
 
-function createClient(uri) {
-  const client = Array.isArray(uri) ? new ioredis.Cluster(uri) :  new ioredis(uri);
+function createClient(uri, options = {}) {
+  const client = Array.isArray(uri) ? new ioredis.Cluster(uri, options) :  new ioredis(uri, options);
 
   client.connectSucceed = new Promise(function (resolve, reject) {
     client.once('ready', () => {

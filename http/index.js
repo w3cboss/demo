@@ -9,6 +9,7 @@ const uuid = require('uuid');
 const path = require('path');
 
 const router = require('./router');
+const { checkLogin, checkIsAdmin } = require('./middleware');
 
 const logger = global.logger;
 const config = global.config;
@@ -27,7 +28,7 @@ app.use(async (ctx, next) => {
   ctx.params = params;
   ctx.__requestid = __requestid;
 
-  ctx.endfor = (code, msg, data) => {
+  ctx.endfor = (code, data, msg = '') => {
     ctx.body = { code, msg, data, __requestid };
   };
 
@@ -36,12 +37,15 @@ app.use(async (ctx, next) => {
 
 app.use(async (ctx, next) => {
   try {
-    await next();
+    await next();ctx.cookies.set()
   } catch (err){
     ctx.status = 500;
     ctx.body = err.message;
   }
 });
+
+app.use(checkLogin);
+app.use(checkIsAdmin);
 
 app.use(router.routes());
 

@@ -28,15 +28,20 @@ async function hi({ params, endfor }) {
   // const t = await redis.exists('j');
   // const j = await redis.del('s');
   // sequelize.Op.in
-  const users = await User.find({
-    where: {
-      // [sequelize.Op.or]: [
-      //   { Guid: { [sequelize.Op.like]: '%12'} }, 
-      //   { Guid: { [sequelize.Op.like]: '%12'} }
-      // ]
-      Guid: {}
-    }
-  });
+  // const users = await User.find({
+  //   where: {
+  //     // [sequelize.Op.or]: [
+  //     //   { Guid: { [sequelize.Op.like]: '%12'} }, 
+  //     //   { Guid: { [sequelize.Op.like]: '%12'} }
+  //     // ]
+  //     Guid: {}
+  //   }
+  // });
+
+  const d = { a: 3 };
+  const lodash = require('lodash');
+  console.log(lodash.get(d, ['a', 'b']));
+
 
   // const { name } = params;
   // ctx.body = 213123
