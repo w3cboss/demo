@@ -1,4 +1,5 @@
-'use strice';
+'use strict';
+
 const redis = require('../lib/redis');
 const User = require('../model/user');
 const sequelize = require('sequelize');

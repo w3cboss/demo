@@ -1,3 +1,5 @@
+'use strict';
+
 const mysql = require('../lib/mysql');
 const Promise = require('bluebird');
 const Sequelize = require('sequelize');
