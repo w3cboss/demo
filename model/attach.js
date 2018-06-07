@@ -22,6 +22,12 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         comment: ''
       },
+      Name: {
+        type: DataTypes.STRING(64),
+        field: 'name',
+        allowNull: false,
+        comment: ''
+      },
       Url: {
         type: DataTypes.STRING(128),
         field: 'url',

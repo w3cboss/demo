@@ -14,7 +14,11 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         field: 'post_id',
         allowNull: false,
-        comment: ''
+        comment: '',
+        references: {
+          model: 'User',
+          key: 'Id'
+        }
       },
       UserId: {
         type: DataTypes.INTEGER,

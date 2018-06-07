@@ -10,7 +10,7 @@ const { User } = mysql.models;
 const logger = global.logger;
 const { cookieKey } = global.config;
 
-module.exports = { getLevels, addLevel };
+module.exports = { login, setPassword };
 
 /**
  * 登录接口
@@ -38,5 +38,22 @@ async function login(ctx) {
 
   if (succ) ctx.cookies.set(cookieKey, token);
   return endfor(succ ? 0 : 40);
+}
+
+/**
+ * 修改密码
+ * @param {*} param0 
+ */
+async function setPassword({ params, endfor }) {
+  const { pass, newpass } = params;
+  if (!(pass && newpass)) return endfor(20);
+  if (newpass.length < 6) return endfor(23);
+  if (ctx.user.pass != pass) return endfor(27);
+
+  const user = await ctx.user.update({ Pass: newpass })
+    .catch(error => logger.error(`setPassword更新user失败,${err.message}`));
+  if (!user) return endfor(40);
+
+  return endfor(0);
 }
 
