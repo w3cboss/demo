@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define("Attach",
+  return sequelize.define("Carousel",
     {
       Id: {
         type: DataTypes.INTEGER,
@@ -16,15 +16,19 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         comment: '',
         references: {
-          model: 'User',
-          key: 'Id'
+          model: 'post',
+          key: 'id'
         }
       },
       UserId: {
         type: DataTypes.INTEGER,
         field: 'user_id',
         allowNull: false,
-        comment: ''
+        comment: '',
+        references: {
+          model: 'user',
+          key: 'id'
+        }
       },
       Title: {
         type: DataTypes.STRING(128),
@@ -54,10 +58,10 @@ module.exports = function (sequelize, DataTypes) {
     },
     {
       freezeTableName: true,
-      tableName: 'attachment',
+      tableName: 'carousel',
       createdAt: 'create_time',
       updatedAt: 'last_time',
-      comment: ''
+      comment: '轮播图'
     }
   );
 }

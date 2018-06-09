@@ -17,10 +17,14 @@ module.exports = function (sequelize, DataTypes) {
         comment: ''
       },
       LevelId: {
-        type: DataTypes.TINYINT,
+        type: DataTypes.INTEGER,
         field: 'level_id',
         allowNull: false,
-        comment: ''
+        comment: '',
+        references: {
+          model: 'level',
+          key: 'id'
+        }
       },
       State: {
         type: DataTypes.TINYINT,
@@ -35,7 +39,7 @@ module.exports = function (sequelize, DataTypes) {
       tableName: 'department',
       createdAt: 'create_time',
       updatedAt: 'last_time',
-      comment: ''
+      comment: '部门'
     }
   );
 }

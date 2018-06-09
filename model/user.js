@@ -65,7 +65,7 @@ module.exports = function (sequelize, DataTypes) {
       tableName: 'user',
       createdAt: 'create_time',
       updatedAt: 'last_time',
-      comment: ''
+      comment: '用户'
     }
   );
 }

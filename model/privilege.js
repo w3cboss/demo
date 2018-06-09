@@ -11,14 +11,18 @@ module.exports = function (sequelize, DataTypes) {
         autoIncrement: true
       },
       UserId: {
-        type: DataTypes.INT,
+        type: DataTypes.INTEGER,
         field: 'user_id',
         allowNull: false,
-        comment: ''
+        comment: '',
+        references: {
+          model: 'user',
+          key: 'id'
+        }
       },
-      Privilege: {
+      Type: {
         type: DataTypes.TINYINT,
-        field: 'privilege',
+        field: 'type',
         allowNull: false,
         comment: ''
       }
@@ -28,11 +32,11 @@ module.exports = function (sequelize, DataTypes) {
       tableName: 'privilege',
       createdAt: 'create_time',
       updatedAt: 'last_time',
-      comment: ''
+      comment: '用户特殊权限'
     }
   );
 
   Privilege.ETYPE = {
-    发布轮播图 = 1
+    发布轮播图: 1
   }
 }

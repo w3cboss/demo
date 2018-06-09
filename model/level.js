@@ -35,7 +35,7 @@ module.exports = function (sequelize, DataTypes) {
       tableName: 'level',
       createdAt: 'create_time',
       updatedAt: 'last_time',
-      comment: ''
+      comment: '部门等级'
     }
   );
 }

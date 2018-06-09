@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define("Attach",
+  return sequelize.define("Reply",
     {
       Id: {
         type: DataTypes.INTEGER,
@@ -26,19 +26,31 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         comment: '',
         references: {
-          model: 'user',
+          model: 'post',
           key: 'id'
         }
       },
-      Name: {
-        type: DataTypes.STRING(64),
-        field: 'name',
-        allowNull: false,
-        comment: ''
+      ReplyId1: {
+        type: DataTypes.INTEGER,
+        field: 'reply_id1',
+        comment: '一级回复id',
+        references: {
+          model: 'reply',
+          key: 'id'
+        }
       },
-      Url: {
-        type: DataTypes.STRING(128),
-        field: 'url',
+      ReplyId2: {
+        type: DataTypes.INTEGER,
+        field: 'reply_id2',
+        comment: '二级回复id',
+        references: {
+          model: 'reply',
+          key: 'id'
+        }
+      },
+      Content: {
+        type: DataTypes.STRING(512),
+        field: 'content',
         allowNull: false,
         comment: ''
       },
@@ -52,10 +64,10 @@ module.exports = function (sequelize, DataTypes) {
     },
     {
       freezeTableName: true,
-      tableName: 'attachment',
+      tableName: 'reply',
       createdAt: 'create_time',
       updatedAt: 'last_time',
-      comment: '帖子附件'
+      comment: '帖子回复'
     }
   );
 }

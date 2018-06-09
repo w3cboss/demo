@@ -40,7 +40,7 @@ app.use(async (ctx, next) => {
     await next();ctx.cookies.set()
   } catch (err){
     ctx.status = 500;
-    ctx.body = err.message;
+    ctx.body = `error:${err.message}`;
   }
 });
 

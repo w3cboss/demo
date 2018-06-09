@@ -1,3 +1,5 @@
+'use strict';
+
 const mysql = require('../lib/mysql');
 const Promise = require('bluebird');
 const Sequelize = require('sequelize');
@@ -242,7 +244,7 @@ async function importUsers({ params, endfor }) {
  * @param {*} params
  */
 async function updateUser({ params, endfor }) {
-  const { id, number, name, deptid, isadmin, state } = params;
+  const { id, pass, number, name, deptid, isadmin, state } = params;
   if (!id || !(number && name && deptid && pass && isadmin && state))
     return endfor(20);
   
@@ -268,7 +270,7 @@ async function updateUser({ params, endfor }) {
   }
 
   const values =  lodash.pick(params, ['number', 'name', 
-    'deptid', 'isadmin', 'state']);
+    'deptid', 'pass', 'isadmin', 'state']);
   user = await user.update(values)
     .catch(err => `updateUser更新user失败，${err.messag}`);
   

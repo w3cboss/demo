@@ -19,7 +19,10 @@ module.exports = { checkLogin, checkIsAdmin };
  */
 async function checkLogin(ctx, next){
   const { endfor } = ctx;
-  if (!checkLoginPaths.includes(ctx.path)) await next();
+  if (!checkLoginPaths.includes(ctx.path)) {
+    await next();
+    return;
+  };
 
   const token = ctx.cookies.get(config.cookieKey);
   if (!token) return endfor(10);
@@ -48,7 +51,10 @@ async function checkLogin(ctx, next){
  */
 async function checkIsAdmin(ctx, next) {
   const { endfor } = ctx;
-  if (!checkAdminPaths.includes(ctx.path)) await next();
+  if (!checkAdminPaths.includes(ctx.path)){
+    await next();
+    return;
+  } 
 
   const token = ctx.cookies.get(config.adminCookieKey);
   if (token) return endfor(10);

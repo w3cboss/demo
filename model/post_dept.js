@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define("Attach",
+  return sequelize.define("PostDept",
     {
       Id: {
         type: DataTypes.INTEGER,
@@ -20,42 +20,23 @@ module.exports = function (sequelize, DataTypes) {
           key: 'id'
         }
       },
-      UserId: {
+      DeptId: {
         type: DataTypes.INTEGER,
-        field: 'user_id',
+        field: 'dept_id',
         allowNull: false,
         comment: '',
         references: {
-          model: 'user',
+          model: 'department',
           key: 'id'
         }
       },
-      Name: {
-        type: DataTypes.STRING(64),
-        field: 'name',
-        allowNull: false,
-        comment: ''
-      },
-      Url: {
-        type: DataTypes.STRING(128),
-        field: 'url',
-        allowNull: false,
-        comment: ''
-      },
-      State: {
-        type: DataTypes.TINYINT,
-        field: 'state',
-        allowNull: false,
-        defaultValue: 0,
-        comment: ''
-      }
     },
     {
       freezeTableName: true,
-      tableName: 'attachment',
+      tableName: 'post_dept',
       createdAt: 'create_time',
       updatedAt: 'last_time',
-      comment: '帖子附件'
+      comment: '帖子-部门可见关系'
     }
   );
 }
