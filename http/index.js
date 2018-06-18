@@ -4,12 +4,11 @@ const Koa = require('koa');
 const http = require('http');
 const body = require('koa-bodyparser');
 const staticServer = require('koa-static');
-const multer = require('koa-multer');
 const uuid = require('uuid');
 const path = require('path');
 
 const router = require('./router');
-const { checkLogin, checkIsAdmin } = require('./middleware');
+const { checkLogin, checkPrivileg } = require('./middleware');
 
 const logger = global.logger;
 const config = global.config;
@@ -37,15 +36,15 @@ app.use(async (ctx, next) => {
 
 app.use(async (ctx, next) => {
   try {
-    await next();ctx.cookies.set()
+    await next();
   } catch (err){
     ctx.status = 500;
     ctx.body = `error:${err.message}`;
   }
 });
 
-app.use(checkLogin);
-app.use(checkIsAdmin);
+// app.use(checkLogin);
+// app.use(checkPrivileg);
 
 app.use(router.routes());
 

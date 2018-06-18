@@ -8,7 +8,7 @@ const tools = require('../lib/tools')
 const redis = require('../lib/redis');
 const ET = require('../ET');
 
-const { User, Post, Dept, PostDept } = mysql.models;
+const { User, Post, Dept, PostDept, Reply, Attach } = mysql.models;
 const logger = global.logger;
 const { cookieKey } = global.config;
 
@@ -26,9 +26,11 @@ async function getPage({ params, user, endfor }) {
   const where = { State: Post.ESTATE.启用 };
   if (isme) {
     where.UserId = user.Id;
-    where.State = { [Sequelize.Op.in]: [Post.ESTATE.启用, Post.ESTATE.草稿] }
+    where.State = { 
+      $in: [Post.ESTATE.启用, Post.ESTATE.草稿] 
+    }
   }
-  if (key) where.Title = { [Sequelize.Op.like]: `%${key}%` };
+  if (key) where.Title = { $like: `%${key}%` };
 
   const results = await Post.findAndCountAll({
     attributes: ['Id', 'Title', 'UserId', 'Count', 'State', 'CreateTime'],
@@ -37,7 +39,7 @@ async function getPage({ params, user, endfor }) {
     include: {
       model: 'PostDept',
       where: {
-        [Sequelize.Op.or]: [{ IsPublic: 0 }, { DeptId: user.DeptId }]   //fix me
+        $or: [{ IsPublic: 0 }, { DeptId: user.DeptId }]   //fix me
       },
       require: true
     },
@@ -56,14 +58,17 @@ async function getPage({ params, user, endfor }) {
  */
 async function publish({ params, user, endfor }) {
   const { postid, title, state = Post.ESTATE.启用,
-    ispublic = 1, isattach = 0, deptid, content } = params;
+    ispublic = 1, isattach = 0, deptId, content } = params;
 
   if (!(title && content))
     return endfor(ET.缺少必须参数);
   if (state != Post.ESTATE.启用 && state != Post.ESTATE.草稿)
     return endfor(ET.参数不合法);
-  if (ispublic != 0 && !/^\d+(,\d+)*$/.test(deptid))
+  if (ispublic != 0 && !/^\d+(,\d+)*$/.test(deptId))
     return endfor(ET.参数不合法);
+
+  if (+isattach === 1 && user.IsAdmin !== 1) 
+    return endfor(ET.没有权限);
 
   let post;
   if (postid) {
@@ -95,14 +100,14 @@ async function publish({ params, user, endfor }) {
   }
 
   //创建可见关系记录
-  if (deptid) {
+  if (deptId) {
     const postDepts = await mysql.transaction(async () => {
       await PostDept.destroy({
         where: { PostId: post.Id }
       });
     }).then(async () =>
       await PostDept.bulkCreate(
-        lodash.map(deptid.split(','), id => {
+        lodash.map(deptId.split(','), id => {
           return { PostId: postid, DeptId: +id };
         })
       )
@@ -111,7 +116,7 @@ async function publish({ params, user, endfor }) {
     if (!postDepts) return endfor(ET.数据异常);
   }
 
-  return endfor(0);
+  return endfor(ET.成功);
 }
 
 /**
@@ -126,7 +131,7 @@ async function del({ params, user, endfor }) {
     where: {
       Id: id,
       State: {
-        [Sequelize.Op.not]: Post.ESTATE.删除
+        $not: Post.ESTATE.删除
       }
     }
   }).catch(err => logger.error(`post.del查询失败,${err.message}`));
@@ -150,21 +155,21 @@ async function getInfo({ params, endfor }) {
   const { id } = params;
   if (!id) return endfor(ET.缺少必须参数);
 
-  const post = await Post.find({
-    attributes: ['Title', 'UserId', 'is_allowattach', 'Content', 'Count',
-      'CreateTime', 'User.Number', 'User.Name', 'User.Avater'],
+  let post = await Post.findById(id, {
+    attributes: ['Title', 'UserId', 'IsAllowAttach', 'Content', 
+      'Count', 'CreateTime'],
     where: {
-      Id: id,
       State: {
-        [Sequelize.Op.not]: Post.ESTATE.删除
+        $not: Post.ESTATE.删除
       }
     },
     include: {
       model: User,
+      attributes: ['Number', 'Name', 'Avater', 'State'],
       require: true
     },
     raw: true
-  }).catch(err => logger.error(`post.del查询失败,${err.message}`));
+  }).catch(err => logger.error(`post.getInfo查询失败,${err.message}`));
   if (!post) return endfor(ET.记录不存在);
 
   post = await post.update({
@@ -185,9 +190,9 @@ async function getDetail({ params, user, endfor }) {
 
   const post = await Post.find({
     where: {
-      Id: id,
+      Id: +id,
       State: {
-        [Sequelize.Op.not]: Post.ESTATE.删除
+        $not: Post.ESTATE.删除
       }
     }
   }).catch(err => logger.error(`post.getdetail查询失败,${err.message}`));
@@ -198,18 +203,113 @@ async function getDetail({ params, user, endfor }) {
   //帖子为不公开，获取允许查看的部门
   if (post.IsPublic !== 1) {
     const depts = await PostDept.findAll({
-      attributes: ['Dept.Id', 'Name'],
       where: { PostId: post.Id },
       include: {
         model: Dept,
         where: { State: 0 },
-        require: true
+        require: true,
+        attributes: ['Name']
       },
       raw: true
     }).catch(err => logger.error(`post.getdetail查询dept失败,${err.message}`));
 
     post.depts = depts;
-    return endfor(ET.成功, post);
   }
+  return endfor(ET.成功, post);
 }
 
+/**
+ * 获取评论列表
+ * @param {*} param0 
+ */
+async function getReplys({ params, endfor }) {
+  const { id, page = 1, size = 10 } = params;
+  if (!id) return endfor(ET.缺少必须参数);
+
+  const post = await Post.findById(+id, {
+    where: { State: Post.ESTATE.启用 }
+  }).catch(err => logger.error(`post.getReplys查询post失败,${err.message}`));
+  if (!post) return endfor(ET.记录不存在);
+
+  const replys = await Reply.findAndCount({
+    where: {
+      PostId: id,
+      State: 0,      
+      Type: Reply.ETYPE.一级回复
+    },
+    limit: size,
+    offset: (page - 1) * size,
+    include: {
+      model: Reply,
+      where: { State: 0 },
+      include: {
+        model: User,
+        attributes: ['Id', 'Name', 'Avater']
+      },
+    },
+    order: [['Id', 'DESC']],
+    raw: true,
+  }).catch(err => logger.error(`post.getReplys查询`));
+  if (!replys) return endfor(ET.数据异常);
+
+  return endfor(ET.成功, { items: replys.rows, count: replys.count });
+}
+
+/**
+ * 发表评论
+ * @param {*} param0 
+ */
+async function sendReply({ params, user, endfor }) {
+  const { id, replyId1, replyId2 } = params;
+  if (!id) return endfor(ET.缺少必须参数);
+
+  const post = await Post.findById(+id, {
+    where: { State: Post.ESTATE.启用 }
+  }).catch(err => logger.error(`post.setReply查询post失败,${err.message}`));
+  if (!post) return endfor(ET.记录不存在);
+
+  const value = {
+    PostId: id, UserId: user.Id, Type: type
+  };
+  value.Type = Reply.ETYPE.一级回复;
+  if (replyId1) {
+    const reply = await Reply.find({
+      where: {
+        ReplyId1: +replyId1,
+        State: 0
+      }
+    }).catch(err => logger.error(`post.setReply查询reply1失败,${err.message}`));
+    if (!reply) return endfor(ET.记录不存在); 
+
+    value.ReplyId1 = replyId1;
+    value.Type = Reply.ETYPE.二级回复;
+  }
+
+  if (replyId2) {
+    const reply = await Reply.find({
+      where: {
+        ReplyId2: +replyId2,
+        State: 0
+      }
+    }).catch(err => logger.error(`post.setReply查询reply2失败,${err.message}`));
+    if (!reply) return endfor(ET.记录不存在); 
+
+    value.ReplyId2 = replyId2;
+    value.Type = Reply.ETYPE.三级回复;
+  }
+
+  const reply = Reply.create(value)
+    .catch(err => logger.error(`post.setReply创建失败,${err.message}`));
+  if (!reply) return endfor(ET.数据异常);
+  
+  return endfor(ET.成功);
+}
+
+/**
+ * 
+ * @param {*} param0 
+ */
+async function sendAttach({ params, user, endfor }) {
+  const { postId, fileName, filePath } = params;
+
+}

@@ -42,9 +42,11 @@ async function addLevel({ params, endfor }) {
 
   //所有已存在的记录rank+1
   level = await mysql.transaction(async () => {
-    await Level.update({ Rank: mysql.literal('`rank` + 1') }, { where: { State: 0 } });
+    await Level.update(
+      { Rank: mysql.literal('`rank` + 1') }, 
+      { where: { State: 0 } });
   }).then(async () =>
-    await Level.create({ Rank: 0, Name: name })
+    await Level.create({ Name: name })
   ).catch(err => logger.error(`addLevel新增失败,${err.message}`));
 
   return endfor(level ? 0 : 40);
@@ -79,7 +81,7 @@ async function updateLevel({ params, endfor }) {
       { where: { Id: +id } })
       .catch(err => logger.error(`updateLevel更新state失败，${err.message}`));
   } else if (type) {
-    const options = {};
+    const op = {};
     if (type === 0) { //上移
       op.where = { Rank: { [Sequelize.Op.gt]: level.Rank } };
       op.order = [['Rank', 'ASC']]
@@ -89,17 +91,17 @@ async function updateLevel({ params, endfor }) {
       op.order = [['Rank', 'DESC']]
     }
 
-    const dstLevel = await Level.findOne(options)
+    const dstLevel = await Level.findOne(op)
       .catch(err => logger.error(`updateLevel查询2失败，${err.message}`));
     if (!dstLevel) return endfor(26);
 
     const rank = level.Rank;
     level = await level.update({ Rank: dstLevel.Rank })
-      .tap(count++)
+      .tap(() => count++)
       .catch(err => logger.error(`updateLevel更新rank1失败，${err.message}`));
 
     dstLevel = await dstLevel.update({ Rank: rank })
-      .tap(count++)
+      .tap(() => count++)
       .catch(err => logger.error(`updateLevel更新rank2失败，${err.message}`));
   }
   return endfor(count ? 40 : 0);
@@ -276,3 +278,4 @@ async function updateUser({ params, endfor }) {
   
   return endfor(user ? 0 : 40);
 }
+

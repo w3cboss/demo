@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define("Reply",
+  const Reply = sequelize.define("Reply",
     {
       Id: {
         type: DataTypes.INTEGER,
@@ -49,7 +49,7 @@ module.exports = function (sequelize, DataTypes) {
         }
       },
       Content: {
-        type: DataTypes.STRING(512),
+        type: DataTypes.STRING(1024),
         field: 'content',
         allowNull: false,
         comment: ''
@@ -59,6 +59,12 @@ module.exports = function (sequelize, DataTypes) {
         field: 'state',
         allowNull: false,
         defaultValue: 0,
+        comment: ''
+      },
+      Type: {
+        type: DataTypes.TINYINT,
+        field: 'type',
+        allowNull: false,
         comment: ''
       }
     },
@@ -70,4 +76,12 @@ module.exports = function (sequelize, DataTypes) {
       comment: '帖子回复'
     }
   );
+
+  Reply.ETYPE = {
+    一级回复: 1,
+    二级回复: 2,
+    三级回复: 3
+  }
+
+  return Reply;
 }

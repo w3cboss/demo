@@ -1,11 +1,12 @@
 'use strict';
 
 const Router = require('koa-router');
-// const multer = require('./multer');
+const multer = require('./multer');
 
 const test = require('../controller/test');
 const admin = require('../controller/admin');
 const post = require('../controller/post');
+const attach = require('../controller/attach');
 
 const router = new Router();
 router.all('/test/hi', test.hi);
@@ -22,9 +23,12 @@ router.all('/post/getinfo', post.getInfo);
 //   ctx.endfor(0);
 // });
 
-// router.post('/upload/document', multer.document.single('doc'), ctx => {
-//   const f = ctx.req.file;
-//   ctx.endfor(0);
-// });
+router.post('/upload/document',  multer().single('file'), 
+ctx => {
+  const f = ctx.req.file;
+  ctx.endfor(0);
+});
+
+router.all('/file/uploadattach', attach.uploadAttach);
 
 module.exports = router;
