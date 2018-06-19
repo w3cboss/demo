@@ -47,9 +47,9 @@ async function uploadAttach(ctx) {
     fs.mkdirSync(filePath);
   }
   //尝试保存上传的附件
-  const fileName = await tools.busboy(ctx, filePath, 'attach', options)
+  const fileNames = await tools.busboy(ctx, filePath, 'attach', options)
     .catch(err => logger.error(`${err.message}`));
-  if (!fileName) return endfor(ET.文件上传失败);
+  if (!fileNames || fileNames.length === 0) return endfor(ET.文件上传失败);
 
   let attach = await Attach.find({
     where: {
@@ -93,7 +93,7 @@ async function getList({ params, user, endfor }) {
 
   if (post.UserId !== user.Id) return endfor(ET.没有权限);
 
-  const attaches = Attach.findAll({
+  const attaches = await Attach.findAll({
     attributes: ['Id', 'Name', 'create_time'],
     where: {
       PostId: id,

@@ -26,11 +26,13 @@ module.exports = function (sequelize, DataTypes) {
         //   key: 'id'
         // }
       },
-      // LevelId: {
-      //   type: DataTypes.TINYINT,
-      //   field: 'level_id',
-      //   comment: '可见等级'
-      // },
+      IsTop: {
+        type: DataTypes.TINYINT,
+        field: 'is_top',
+        comment: '是否置顶',
+        allowNull: false,
+        defaultValue: 0
+      },
       IsPublic: {
         type: DataTypes.TINYINT,
         field: 'is_public',

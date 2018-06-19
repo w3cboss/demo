@@ -1,11 +1,12 @@
 'use strict';
 
 const mysql = require('../lib/mysql');
-const Promise = require('bluebird');
 const Sequelize = require('sequelize');
 const lodash = require('lodash');
 
-const { User, Level, Dept } = mysql.models;
+const ET = require('../ET');
+
+const { User, Level, Dept, Post } = mysql.models;
 const logger = global.logger;
 
 module.exports = { getLevels, addLevel };
@@ -19,9 +20,9 @@ async function getLevels({ params, endfor }) {
     where: { State: 0 },
     raw: true
   }).catch(err => logger.error(`getLevels查询level失败,${err.message}`));
+  if (!levels) return endfor(ET.数据异常);
 
-  if (!levels) return endfor(40);
-  return endfor(0, { items: levels });
+  return endfor(ET.成功, { items: levels });
 }
 
 /**
@@ -31,25 +32,25 @@ async function getLevels({ params, endfor }) {
  */
 async function addLevel({ params, endfor }) {
   const { name } = params;
-  if (!name) return endfor(20);
+  if (!name) return endfor(ET.缺少必须参数);
 
   let level = await Level.find({
     where: { Name: name },
     attributes: ['name'],
     raw: true
   }).catch(err => logger.error(`addLevel查询level失败,${err.message}`));
-  if (level) return endfor(25);
+  if (level) return endfor(ET.记录已存在);
 
   //所有已存在的记录rank+1
   level = await mysql.transaction(async () => {
     await Level.update(
-      { Rank: mysql.literal('`rank` + 1') }, 
+      { Rank: mysql.literal('`rank` + 1') },
       { where: { State: 0 } });
   }).then(async () =>
     await Level.create({ Name: name })
   ).catch(err => logger.error(`addLevel新增失败,${err.message}`));
 
-  return endfor(level ? 0 : 40);
+  return endfor(level ? 成功 : 数据异常);
 }
 
 /**
@@ -63,11 +64,12 @@ async function addLevel({ params, endfor }) {
  */
 async function updateLevel({ params, endfor }) {
   const { id, name, state, type } = params;
-  if (!id || !isNaN(id)) return endfor(20);
+  if (!id) return endfor(ET.缺少必须参数);
+  if (!isNaN(id)) return endfor(ET.参数内容不合法);
 
   const level = await Level.findOne({ Id: +id })
     .catch(err => logger.error(`updateLevel查询1失败，${err.message}`));
-  if (!level) return endfor(25);
+  if (!level) return endfor(ET.记录不存在);
 
   let count = 0;
   if (name) {
@@ -249,7 +251,7 @@ async function updateUser({ params, endfor }) {
   const { id, pass, number, name, deptid, isadmin, state } = params;
   if (!id || !(number && name && deptid && pass && isadmin && state))
     return endfor(20);
-  
+
   let user = User.findOne({
     where: { Id: id }
   }).catch(err => `updateUser查询user1失败,${err.messag}`);
@@ -271,11 +273,50 @@ async function updateUser({ params, endfor }) {
     if (!dept) return endfor(25);
   }
 
-  const values =  lodash.pick(params, ['number', 'name', 
+  const values = lodash.pick(params, ['number', 'name',
     'deptid', 'pass', 'isadmin', 'state']);
   user = await user.update(values)
     .catch(err => `updateUser更新user失败，${err.messag}`);
-  
+
   return endfor(user ? 0 : 40);
+}
+
+/**
+ * 修改帖子
+ * @param {*} param0 
+ */
+async function updatePost({ params, endfor }) {
+  const { id, type } = params;
+  if (!(id && type))
+    return endfor(ET.缺少必须参数);
+  if (!isNaN(id) || type < 1 || type > 2)
+    return endfor(ET.参数不合法);
+
+  let post = await Post.findById(id, {
+    where: {
+      State: 0
+    }
+  }).catch(err => logger.error(`admin.updatepost查询失败,${err.message}`));
+  if (!post) return endfor(ET.记录不存在);
+
+  const value = {};
+  switch (type) {
+    case 1:
+      value.IsTop = 1;
+      break;
+    case 2:
+      value.IsTop = 0;
+      break;
+    case 3:
+      value.State = 1;
+      break;
+  }
+
+  post = await post.update({
+    IsTop: 1
+  }).catch(err => logger.error(`admin.updatepost更新失败,${err.message}`));
+  if (!post) return endfor(ET.数据异常);
+
+  return endfor(ET.成功);
 }
 

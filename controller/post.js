@@ -43,7 +43,7 @@ async function getPage({ params, user, endfor }) {
       },
       require: true
     },
-    order: [[], ['CreateTime', 'DESC']],
+    order: [['IsTop', 'DESC'], ['CreateTime', 'DESC']],
     limit: size,
     offset: (page - 1) * size,
   }).catch(err => logger.error(`post.getpage查询失败,${err.message}`));

@@ -39,6 +39,6 @@ module.exports = function (sequelize, DataTypes) {
   Privilege.ETYPE = {
     超级管理员: 1,
     发布轮播图: 2,
-    // 管理帖子附件: 3,
+    管理帖子: 3,
   }
 }
