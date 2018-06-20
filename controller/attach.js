@@ -41,8 +41,8 @@ async function uploadAttach(ctx) {
       files: 1
     }
   };
-  const separator = config.isWindows ? '\\' : '/';
-  const filePath = `${config.attachPath}${separator}${id}${separator}${user.Id}`;
+  
+  const filePath = `${config.attachPath}/${id}/${user.Id}`;
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(filePath);
   }
@@ -60,6 +60,7 @@ async function uploadAttach(ctx) {
   }).catch(err => logger.error(`attach.upload查询attach失败,${err.message}`));
 
   // const url = `/attach/download/${postId}/${user.Id}/${fileName}`;
+  const fileName = fileNames[0].filename;
   if (attach) {
     attach = await attach.update({
       Name: fileName

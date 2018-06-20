@@ -33,7 +33,7 @@ async function getPage({ params, user, endfor }) {
   if (key) where.Title = { $like: `%${key}%` };
 
   const results = await Post.findAndCountAll({
-    attributes: ['Id', 'Title', 'UserId', 'Count', 'State', 'CreateTime'],
+    attributes: ['Id', 'Title', 'UserId', 'Count', 'State', 'CreateTime', 'IsTop'],
     where,
     raw: true,
     include: {

@@ -3,11 +3,16 @@
 const mysql = require('../lib/mysql');
 const Sequelize = require('sequelize');
 const lodash = require('lodash');
+const fs = require('fs');
+const xlsx = require('node-xlsx');
+const path = require('path');
 
 const ET = require('../ET');
+const tools = require('../lib/tools');
 
-const { User, Level, Dept, Post } = mysql.models;
+const { User, Level, Dept, Post, Privilege } = mysql.models;
 const logger = global.logger;
+const config = global.config;
 
 module.exports = { getLevels, addLevel };
 
@@ -140,7 +145,7 @@ async function addDept({ params, endfor }) {
 
   let dept = await Dept.findOne({
     where: { Name: name, State: 0 }
-  }).catch(err => `addDept查询dept失败，${err.messag}`);
+  }).catch(err => `addDept查询dept失败，${err.message}`);
   if (dept) return endfor(107);
 
   dept = await Dept.create({
@@ -163,21 +168,21 @@ async function updateDept({ params, endfor }) {
 
   let dept = await Dept.findOne({
     where: { Id: +id }
-  }).catch(err => logger.error(`updateDept查询dept1失败，${err.messag}`));
+  }).catch(err => logger.error(`updateDept查询dept1失败，${err.message}`));
   if (!dept) return endfor(25);
 
   let count = 0;
   if (name) {
     const de = await Dept.findOne({
       where: { Name: name }
-    }).catch(err => logger.error(`updateDept查询dept2失败，${err.messag}`));
+    }).catch(err => logger.error(`updateDept查询dept2失败，${err.message}`));
     if (de) return endfor(107);
 
     count = await dept.update({ Name: name })
-      .catch(err => logger.error(`updateDept更新name失败，${err.messag}`));
+      .catch(err => logger.error(`updateDept更新name失败，${err.message}`));
   } else {
     count = await dept.update({ State: +state })
-      .catch(err => logger.error(`updateDept更新state失败，${err.messag}`));
+      .catch(err => logger.error(`updateDept更新state失败，${err.message}`));
   }
   return endfor(count ? 0 : 40);
 }
@@ -197,7 +202,7 @@ async function getUsers({ params, endfor }) {
     raw: true,
     offset: (page - 1) * size,
     limit: size
-  }).catch(err => logger.error(`getUsers查询users失败，${err.messag}`));
+  }).catch(err => logger.error(`getUsers查询users失败，${err.message}`));
 
   if (!rows) return endfor(40);
   return endfor(0, { count, items: rows });
@@ -217,21 +222,21 @@ async function addUser({ params, endfor }) {
 
   let user = await User.findOne({
     where: {
-      [Op.or]: [{ Number: +number }, { Name: name }],
+      $or: [{ Number: +number }, { Name: name }],
       State: 0
     }
-  }).catch(err => logger.error(`addUser查询user失败，${err.messag}`));
+  }).catch(err => logger.error(`addUser查询user失败，${err.message}`));
   if (user) return endfor(107);
 
   const dept = await Dept.findOne({
     where: { Id: +id }
-  }).catch(err => logger.error(`addUser查询dept失败，${err.messag}`));
+  }).catch(err => logger.error(`addUser查询dept失败，${err.message}`));
   if (!dept) return endfor(25);
 
   user = User.create({
-    Number: number, Name: name, DeptId: +deptid,
-    Pass: number, Key: `${name}_${number}`
-  }).catch(err => logger.error(`addUser新增失败，${err.messag}`));
+    Number: number, Name: name, DeptId: +deptid, Pass: number, 
+    Key: `${name}_${number}`, Avater: config.defaultAvater
+  }).catch(err => logger.error(`addUser新增失败，${err.message}`));
   return endfor(user ? 0 : 40);
 }
 
@@ -240,7 +245,64 @@ async function addUser({ params, endfor }) {
  * @param {*} params
  */
 async function importUsers({ params, endfor }) {
+  const filePath = config.tmpPath;
+  if (!fs.existsSync(filePath)) {
+    fs.mkdirSync(filePath);
+  }
+  
+  const options = {};
+  //尝试保存上传的附件
+  const fileNames = await tools.busboy(ctx, filePath, ['user'], options)
+    .catch(err => logger.error(`${err.message}`));
+  if (!fileNames || fileNames.length === 0) return endfor(ET.文件上传失败);
 
+  const absolutePath = path.join(filePath, fileNames[0]);
+  const data = xlsx.parse(absolutePath);
+  fs.unlink(absolutePath);
+
+  if (!data || data.length === 0) return endfor(ET.文件格式不正确);
+  const lines = data[0].data;
+  if (!lines || lines.length === 0) return endfor(ET.文件格式不正确);
+
+  //number去重
+  const numbers = lines.Map(line => line[0]);
+  const users = await User.findAll({
+    attributes: ['Number'],
+    where: {
+      State: 0,
+      Number: { $in: numbers }
+    }
+  }).catch(err => logger.error(`admin.importUser查询user失败,${err.message}`));
+  if (!users) return endfor(ET.数据异常);
+  if (user.length > 0) return endfor(ET.记录已存在, { items: users.Map(user => user.Number) });
+
+  const depts = await Dept.findAll({
+    attributes: ['Id', 'Name'],
+    where: {
+      State: 0
+    }
+  }).catch(err => logger.error(`admin.importUser查询dept失败,${err.message}`));
+  if (!depts) return endfor(ET.数据异常);
+
+  const deptMap = new Map();
+  depts.forEach(dept => {
+    deptMap[dept.Name] = deptMap[dept.Id]
+  });
+  
+  const values = [];
+  lines.forEach(line => {
+    if (!deptMap.keys.includes(line[2])) return;
+    values.push({
+      Number: line[0], Name: line[1], DeptId: deptMap[line[2]], Pass: line[0],
+      Key: `${name}_${number}`, Avater: config.defaultAvater
+    })
+  });
+
+  const users = await User.bulkCreate(values)
+    .catch(err => logger.error(`admin.importUser插入失败,${err.message}`));
+  if (!users) return endfor(ET.数据异常);
+
+  return endfor(ET.成功, { count: users.length });
 }
 
 /**
@@ -254,31 +316,63 @@ async function updateUser({ params, endfor }) {
 
   let user = User.findOne({
     where: { Id: id }
-  }).catch(err => `updateUser查询user1失败,${err.messag}`);
+  }).catch(err => `updateUser查询user1失败,${err.message}`);
   if (!user) return endfor(25);
 
   const values = {};
   if (number || name) {
     user = await User.findOne({
       where: {
-        [Op.or]: [{ Number: +number }, { Name: name }],
+        $or: [{ Number: +number }, { Name: name }],
         State: 0
       }
-    }).catch(err => logger.error(`updateUser查询user2失败，${err.messag}`));
+    }).catch(err => logger.error(`updateUser查询user2失败，${err.message}`));
     if (user) return endfor(107);
-  } else if (deptid) {
+  } 
+  
+  if (deptid) {
     const dept = await Dept.findOne({
       where: { Id: +id }
-    }).catch(err => logger.error(`updateUser查询dept失败，${err.messag}`));
+    }).catch(err => logger.error(`updateUser查询dept失败，${err.message}`));
     if (!dept) return endfor(25);
   }
 
   const values = lodash.pick(params, ['number', 'name',
     'deptid', 'pass', 'isadmin', 'state']);
   user = await user.update(values)
-    .catch(err => `updateUser更新user失败，${err.messag}`);
+    .catch(err => `updateUser更新user失败，${err.message}`);
 
   return endfor(user ? 0 : 40);
+}
+
+async function grantUser({ params, endfor }) {
+
+}
+
+
+/**
+ * 获取帖子列表
+ * @param {*} param0 
+ */
+async function getPostPage({ params, endfor }) {
+  const { key, page = 1, size = 20 } = params;
+  if (page <= 0 || size <= 0)
+    return endfor(ET.缺少必须参数);
+
+  const where = { State: Post.ESTATE.启用 };
+  if (key) where.Title = { $like: `%${key}%` };
+
+  const results = await Post.findAndCountAll({
+    attributes: ['Id', 'Title', 'UserId', 'Count', 'State', 'CreateTime', 'IsTop'],
+    where,
+    raw: true,
+    order: [['IsTop', 'DESC'], ['CreateTime', 'DESC']],
+    limit: size,
+    offset: (page - 1) * size,
+  }).catch(err => logger.error(`admin.getpage查询失败,${err.message}`));
+
+  if (!results) return endfor(ET.数据异常);
+  return endfor(ET.成功, { count: results.count, items: result.rows });
 }
 
 /**
@@ -319,4 +413,3 @@ async function updatePost({ params, endfor }) {
 
   return endfor(ET.成功);
 }
-
