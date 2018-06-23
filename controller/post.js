@@ -8,7 +8,7 @@ const tools = require('../lib/tools')
 const redis = require('../lib/redis');
 const ET = require('../ET');
 
-const { User, Post, Dept, PostDept, Reply, Attach } = mysql.models;
+const { User, Post, Dept, PostDept, Reply, Tip } = mysql.models;
 const logger = global.logger;
 const { cookieKey } = global.config;
 
@@ -26,8 +26,8 @@ async function getPage({ params, user, endfor }) {
   const where = { State: Post.ESTATE.启用 };
   if (isme) {
     where.UserId = user.Id;
-    where.State = { 
-      $in: [Post.ESTATE.启用, Post.ESTATE.草稿] 
+    where.State = {
+      $in: [Post.ESTATE.启用, Post.ESTATE.草稿]
     }
   }
   if (key) where.Title = { $like: `%${key}%` };
@@ -67,7 +67,7 @@ async function publish({ params, user, endfor }) {
   if (ispublic != 0 && !/^\d+(,\d+)*$/.test(deptId))
     return endfor(ET.参数不合法);
 
-  if (+isattach === 1 && user.IsAdmin !== 1) 
+  if (+isattach === 1 && user.IsAdmin !== 1)
     return endfor(ET.没有权限);
 
   let post;
@@ -156,7 +156,7 @@ async function getInfo({ params, endfor }) {
   if (!id) return endfor(ET.缺少必须参数);
 
   let post = await Post.findById(id, {
-    attributes: ['Title', 'UserId', 'IsAllowAttach', 'Content', 
+    attributes: ['Title', 'UserId', 'IsAllowAttach', 'Content',
       'Count', 'CreateTime'],
     where: {
       State: {
@@ -234,7 +234,7 @@ async function getReplys({ params, endfor }) {
   const replys = await Reply.findAndCount({
     where: {
       PostId: id,
-      State: 0,      
+      State: 0,
       Type: Reply.ETYPE.一级回复
     },
     limit: size,
@@ -272,6 +272,7 @@ async function sendReply({ params, user, endfor }) {
     PostId: id, UserId: user.Id, Type: type
   };
   value.Type = Reply.ETYPE.一级回复;
+  let beUserId = post.UserId; //被回复人id
   if (replyId1) {
     const reply = await Reply.find({
       where: {
@@ -279,10 +280,11 @@ async function sendReply({ params, user, endfor }) {
         State: 0
       }
     }).catch(err => logger.error(`post.setReply查询reply1失败,${err.message}`));
-    if (!reply) return endfor(ET.记录不存在); 
+    if (!reply) return endfor(ET.记录不存在);
 
     value.ReplyId1 = replyId1;
     value.Type = Reply.ETYPE.二级回复;
+    beUserId = reply.UserId;
   }
 
   if (replyId2) {
@@ -292,24 +294,86 @@ async function sendReply({ params, user, endfor }) {
         State: 0
       }
     }).catch(err => logger.error(`post.setReply查询reply2失败,${err.message}`));
-    if (!reply) return endfor(ET.记录不存在); 
+    if (!reply) return endfor(ET.记录不存在);
 
     value.ReplyId2 = replyId2;
     value.Type = Reply.ETYPE.三级回复;
+    beUserId = reply.UserId;
   }
 
-  const reply = Reply.create(value)
-    .catch(err => logger.error(`post.setReply创建失败,${err.message}`));
-  if (!reply) return endfor(ET.数据异常);
-  
+  const tip = await mysql.transaction(async () => {
+    return await Reply.create(value);
+  }).then(async (reply) => {
+    return await Tip.create({
+      PostId: id, UserId: beUserId, ReplyUserId: user.Id,
+      ReplyId: reply.Id
+    })
+  }).catch(err => logger.error(`post.setReply创建失败,${err.message}`));
+  if (!tip) return endfor(ET.数据异常);
+
   return endfor(ET.成功);
 }
 
 /**
- * 
+ * 删除回复
  * @param {*} param0 
  */
-async function sendAttach({ params, user, endfor }) {
-  const { postId, fileName, filePath } = params;
+async function deleteReply({ params, user, endfor }) {
+  const { id } = params;
+  if (!id) return endfor(ET.缺少必须参数);
+  if (!isNaN(id)) return endfor(ET.参数内容不合法);
 
+  const reply = Reply.findById(id, {
+    where: {
+      State: 0
+    }
+  }).catch(err => logger.error(`post.deleteReply查询失败,${err.message}`));
+  if (!reply) return endfor(ET.记录不存在);
+
+  if (reply.UserId !== user.Id) return endfor(ET.没有权限);
+
+  const count = await Reply.destroy({
+    where: {
+      Id: id,
+      State: 0
+    }
+  }).catch(err => logger.error(`post.deleteReply删除失败,${err.message}`));
+  if (count !== 1) return endfor(ET.数据异常);
+
+  return endfor(ET.成功);
+}
+
+/**
+ * 获取回复提示页
+ * @param {*} param0 
+ */
+async function getTipPage({ params, user, endfor }) {
+  const { page = 1, size = 20 } = params;
+  const result = await Tip.findAndCount({
+    where: {
+      UserId: user.Id,
+    },
+    order: [['Id', 'DESC']],
+    include: [
+      {
+        model: 'Post',
+        attributes: ['State', 'Id', 'Title'],
+        require: true
+      },
+      {
+        model: 'User',
+        attributes: ['Id', 'Name'],
+        require: true
+      }
+    ],
+    limit: size,
+    offset: (page - 1) * size
+  }).catch(err => logger.error(`post.getTipPage查询tip失败,${err.message}`));
+  if (!result) return endfor(ET.数据异常);
+
+  Tip.update({ State: 1 }, { where: { UserId: user.Id } })
+    .catch(err => logger.error(`post.getTipPage更新tip失败,${err.message}`));
+  
+  const { rows, count } = result;
+  return endfor(ET.成功, { count, items: rows });
 }

@@ -10,21 +10,24 @@ const path = require('path');
 const ET = require('../ET');
 const tools = require('../lib/tools');
 
-const { User, Level, Dept, Post, Privilege } = mysql.models;
+const { User, Level, Dept, Post, Privilege, Carousel } = mysql.models;
 const logger = global.logger;
 const config = global.config;
 
-module.exports = { getLevels, addLevel };
+module.exports = { getLevelList, addLevel, updateLevel, getDeptList, addDept,
+  updateDept, getUserPage, addUser, importUsers, updateUser, getPostPage, updatePost,
+  getCarouselList, getCarouselInfo, addCarousel, updateCarousel
+ };
 
 /**
  * 获取部门等级列表
  * @param {*} param0 
  */
-async function getLevels({ params, endfor }) {
+async function getLevelList({ params, endfor }) {
   const levels = await Level.findAll({
     where: { State: 0 },
     raw: true
-  }).catch(err => logger.error(`getLevels查询level失败,${err.message}`));
+  }).catch(err => logger.error(`admin.getLevelList查询level失败,${err.message}`));
   if (!levels) return endfor(ET.数据异常);
 
   return endfor(ET.成功, { items: levels });
@@ -43,7 +46,7 @@ async function addLevel({ params, endfor }) {
     where: { Name: name },
     attributes: ['name'],
     raw: true
-  }).catch(err => logger.error(`addLevel查询level失败,${err.message}`));
+  }).catch(err => logger.error(`admin.addLevel查询level失败,${err.message}`));
   if (level) return endfor(ET.记录已存在);
 
   //所有已存在的记录rank+1
@@ -53,7 +56,7 @@ async function addLevel({ params, endfor }) {
       { where: { State: 0 } });
   }).then(async () =>
     await Level.create({ Name: name })
-  ).catch(err => logger.error(`addLevel新增失败,${err.message}`));
+  ).catch(err => logger.error(`admin.addLevel新增失败,${err.message}`));
 
   return endfor(level ? 成功 : 数据异常);
 }
@@ -73,7 +76,7 @@ async function updateLevel({ params, endfor }) {
   if (!isNaN(id)) return endfor(ET.参数内容不合法);
 
   const level = await Level.findOne({ Id: +id })
-    .catch(err => logger.error(`updateLevel查询1失败，${err.message}`));
+    .catch(err => logger.error(`admin.updateLevel查询1失败，${err.message}`));
   if (!level) return endfor(ET.记录不存在);
 
   let count = 0;
@@ -81,12 +84,12 @@ async function updateLevel({ params, endfor }) {
     count = await Level.update(
       { Name: name },
       { where: { Id: +id } })
-      .catch(err => logger.error(`updateLevel更新name失败，${err.message}`));
+      .catch(err => logger.error(`admin.updateLevel更新name失败，${err.message}`));
   } else if (state) {
     count = await Level.update(
       { State: state },
       { where: { Id: +id } })
-      .catch(err => logger.error(`updateLevel更新state失败，${err.message}`));
+      .catch(err => logger.error(`admin.updateLevel更新state失败，${err.message}`));
   } else if (type) {
     const op = {};
     if (type === 0) { //上移
@@ -99,30 +102,30 @@ async function updateLevel({ params, endfor }) {
     }
 
     const dstLevel = await Level.findOne(op)
-      .catch(err => logger.error(`updateLevel查询2失败，${err.message}`));
+      .catch(err => logger.error(`admin.updateLevel查询2失败，${err.message}`));
     if (!dstLevel) return endfor(26);
 
     const rank = level.Rank;
     level = await level.update({ Rank: dstLevel.Rank })
       .tap(() => count++)
-      .catch(err => logger.error(`updateLevel更新rank1失败，${err.message}`));
+      .catch(err => logger.error(`admin.updateLevel更新rank1失败，${err.message}`));
 
     dstLevel = await dstLevel.update({ Rank: rank })
       .tap(() => count++)
-      .catch(err => logger.error(`updateLevel更新rank2失败，${err.message}`));
+      .catch(err => logger.error(`admin.updateLevel更新rank2失败，${err.message}`));
   }
   return endfor(count ? 40 : 0);
 }
 
 
-async function getDpets({ params, endfor }) {
+async function getDeptList({ params, endfor }) {
   const { levelId } = params;
   if (!levelId) return endfor(20);
 
   const depts = await Dept.findAll({
     where: { LevelId: levelId, State: 0 },
     raw: true
-  }).catch(err => logger.error(`getDpets查询dept失败，${err.message}`));
+  }).catch(err => logger.error(`admin.getDeptList查询dept失败，${err.message}`));
 
   if (!depts) return endfor(40);
   return endfor(0, { items: depts });
@@ -140,17 +143,17 @@ async function addDept({ params, endfor }) {
 
   const level = await Level.findOne({
     where: { Id: +id, State: 0 }
-  }).catch(err => `addDept查询level失败，${err.message}`);
+  }).catch(err => `admin.addDept查询level失败，${err.message}`);
   if (level) return endfor(25);
 
   let dept = await Dept.findOne({
     where: { Name: name, State: 0 }
-  }).catch(err => `addDept查询dept失败，${err.message}`);
+  }).catch(err => `admin.addDept查询dept失败，${err.message}`);
   if (dept) return endfor(107);
 
   dept = await Dept.create({
     Name: name, LevelId: +id
-  }).catch(err => `addDept查询dept失败，${err.message}`);
+  }).catch(err => `admin.addDept查询dept失败，${err.message}`);
 
   return endfor(dept ? 0 : 40);
 }
@@ -168,21 +171,21 @@ async function updateDept({ params, endfor }) {
 
   let dept = await Dept.findOne({
     where: { Id: +id }
-  }).catch(err => logger.error(`updateDept查询dept1失败，${err.message}`));
+  }).catch(err => logger.error(`admin.updateDept查询dept1失败，${err.message}`));
   if (!dept) return endfor(25);
 
   let count = 0;
   if (name) {
     const de = await Dept.findOne({
       where: { Name: name }
-    }).catch(err => logger.error(`updateDept查询dept2失败，${err.message}`));
+    }).catch(err => logger.error(`admin.updateDept查询dept2失败，${err.message}`));
     if (de) return endfor(107);
 
     count = await dept.update({ Name: name })
-      .catch(err => logger.error(`updateDept更新name失败，${err.message}`));
+      .catch(err => logger.error(`admin.updateDept更新name失败，${err.message}`));
   } else {
     count = await dept.update({ State: +state })
-      .catch(err => logger.error(`updateDept更新state失败，${err.message}`));
+      .catch(err => logger.error(`admin.updateDept更新state失败，${err.message}`));
   }
   return endfor(count ? 0 : 40);
 }
@@ -191,7 +194,7 @@ async function updateDept({ params, endfor }) {
  * 
  * @param {*} param0 
  */
-async function getUsers({ params, endfor }) {
+async function getUserPage({ params, endfor }) {
   const { deptId, key, page = 1, size = 10 } = params;
   const where = {};
   if (deptId) where.DeptId = { [Sequelize.Op.in]: deptId.split(',') };
@@ -202,7 +205,7 @@ async function getUsers({ params, endfor }) {
     raw: true,
     offset: (page - 1) * size,
     limit: size
-  }).catch(err => logger.error(`getUsers查询users失败，${err.message}`));
+  }).catch(err => logger.error(`admin.getUsers查询users失败，${err.message}`));
 
   if (!rows) return endfor(40);
   return endfor(0, { count, items: rows });
@@ -225,18 +228,18 @@ async function addUser({ params, endfor }) {
       $or: [{ Number: +number }, { Name: name }],
       State: 0
     }
-  }).catch(err => logger.error(`addUser查询user失败，${err.message}`));
+  }).catch(err => logger.error(`admin.addUser查询user失败，${err.message}`));
   if (user) return endfor(107);
 
   const dept = await Dept.findOne({
     where: { Id: +id }
-  }).catch(err => logger.error(`addUser查询dept失败，${err.message}`));
+  }).catch(err => logger.error(`admin.addUser查询dept失败，${err.message}`));
   if (!dept) return endfor(25);
 
   user = User.create({
-    Number: number, Name: name, DeptId: +deptid, Pass: number, 
+    Number: number, Name: name, DeptId: +deptid, Pass: number,
     Key: `${name}_${number}`, Avater: config.defaultAvater
-  }).catch(err => logger.error(`addUser新增失败，${err.message}`));
+  }).catch(err => logger.error(`admin.addUser新增失败，${err.message}`));
   return endfor(user ? 0 : 40);
 }
 
@@ -249,7 +252,7 @@ async function importUsers({ params, endfor }) {
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(filePath);
   }
-  
+
   const options = {};
   //尝试保存上传的附件
   const fileNames = await tools.busboy(ctx, filePath, ['user'], options)
@@ -288,7 +291,7 @@ async function importUsers({ params, endfor }) {
   depts.forEach(dept => {
     deptMap[dept.Name] = deptMap[dept.Id]
   });
-  
+
   const values = [];
   lines.forEach(line => {
     if (!deptMap.keys.includes(line[2])) return;
@@ -306,18 +309,26 @@ async function importUsers({ params, endfor }) {
 }
 
 /**
- * 
+ * 更新用户信息
  * @param {*} params
  */
 async function updateUser({ params, endfor }) {
-  const { id, pass, number, name, deptid, isadmin, state } = params;
+  const { id, pass, number, name, deptid, isadmin, state, privilege } = params;
   if (!id || !(number && name && deptid && pass && isadmin && state))
-    return endfor(20);
+    return endfor(ET.缺少必须参数);
+  if (privilege) {
+    const types = privilege.split(',');
+    if (types.length > 0) {
+      let valid = true;
+      types.forEach(type => valid &= isNaN(type));
+      if (!valid) return endfor(ET.参数内容不合法);
+    }
+  }
 
   let user = User.findOne({
     where: { Id: id }
   }).catch(err => `updateUser查询user1失败,${err.message}`);
-  if (!user) return endfor(25);
+  if (!user) return endfor(ET.记录不存在);
 
   const values = {};
   if (number || name) {
@@ -327,28 +338,33 @@ async function updateUser({ params, endfor }) {
         State: 0
       }
     }).catch(err => logger.error(`updateUser查询user2失败，${err.message}`));
-    if (user) return endfor(107);
-  } 
-  
+    if (user) return endfor(ET.记录已存在);
+  }
+
   if (deptid) {
     const dept = await Dept.findOne({
       where: { Id: +id }
     }).catch(err => logger.error(`updateUser查询dept失败，${err.message}`));
-    if (!dept) return endfor(25);
+    if (!dept) return endfor(ET.记录不存在);
   }
 
-  const values = lodash.pick(params, ['number', 'name',
-    'deptid', 'pass', 'isadmin', 'state']);
-  user = await user.update(values)
-    .catch(err => `updateUser更新user失败，${err.message}`);
+  user = mysql.transaction(async () => {
+    await Privilege.destroy({
+      where: { UserId: id }
+    });
+  }).then(async () => {
+    const types = privilege.split(',');
+    await Privilege.bulkCreate(types.Map(type => {
+      return { UserId: id, Type: type };
+    }))
+  }).then(async () => {
+    const values = lodash.pick(params, ['number', 'name',
+      'deptid', 'pass', 'isadmin', 'state']);
+    return await user.update(values);
+  }).catch(err => logger.error(`admin.updateUser更新失败,${err.message}`));
 
-  return endfor(user ? 0 : 40);
+  return endfor(user ? ET.成功 : ET.数据异常);
 }
-
-async function grantUser({ params, endfor }) {
-
-}
-
 
 /**
  * 获取帖子列表
@@ -410,6 +426,150 @@ async function updatePost({ params, endfor }) {
     IsTop: 1
   }).catch(err => logger.error(`admin.updatepost更新失败,${err.message}`));
   if (!post) return endfor(ET.数据异常);
+
+  return endfor(ET.成功);
+}
+
+/**
+ * 获取轮播图列表
+ * @param {*} param0 
+ */
+async function getCarouselList({ params, endfor }) {
+  const carousels = await Carousel.findAll({
+    attributes: ['Id', 'Title', 'Rank', 'Url'],
+    where: { State: 0 },
+    order: [['Rank', 'ASC']],
+    include: {
+      model: Post,
+      attributes: ['Id', 'Title']
+    },
+    raw: true
+  }).catch(err => logger.error(`admin.getCarouselList查询失败,${err.message}`));
+  if (!carousels) return endfor(ET.数据异常);
+
+  return endfor(ET.成功, { items: carousels });
+}
+
+/**
+ * 获取轮播图信息
+ * @param {} param0 
+ */
+async function getCarouselInfo({ params, endfor }) {
+  const { id } = params;
+  if (!id) return endfor(ET.缺少必须参数);
+  if (!isNaN(id)) return endfor(ET.参数内容不合法);
+
+  const carousels = await Carousel.findById(id, {
+    where: { State: 0 },
+    include: {
+      model: Post,
+      attributes: ['Id', 'Title']
+    }
+  }).catch(err => logger.error(`admin.getCarouselInfo查询失败,${err.message}`));
+  if (!carousels) return endfor(ET.记录不存在);
+
+  return endfor(ET.成功, { items: carousels });
+}
+
+/**
+ * 添加轮播图
+ * @param {} param0 
+ */
+async function addCarousel({ params, user, endfor }) {
+  const { title, url, postId };
+  if (!(url && postId))
+    return endfor(ET.缺少必须参数);
+  if (ur.length > 128 || (title && title.length > 128) || !isNaN(postId))
+    return endfor(ET.参数不合法);
+
+  const post = await Post.findById(postId, {
+    where: { State: 0 }
+  }).catch(err => logger.error(`admin.addCarousel查询post失败,${err.message}`));
+  if (!post) return endfor(ET.记录不存在);
+
+  //所有已存在的记录rank+1
+  const carousel = await mysql.transaction(async () => {
+    await Carousel.update(
+      { Rank: mysql.literal('`rank` + 1') },
+      { where: { State: 0 } });
+  }).then(async () =>
+    await Carousel.create({
+      PostId: postId, Title: title, UserId: user.Id,
+      Url: url
+    })
+  ).catch(err => logger.error(`admin.addCarousel更新失败,${err.message}`));
+  if (!carousel) return endfor(ET.数据异常);
+
+  return endfor(ET.成功);
+}
+
+/**
+ * 修改轮播图
+ * @param {*} param0 
+ */
+async function updateCarousel({ params, endfor }) {
+  const { id, postId, title, type, state } = params;
+
+  if (!id || !(postId && title && type && state))
+    return endfor(ET.缺少必须参数);
+  if (!isNaN(id) || (postId && !isNaN(postId))
+    || (type && (type < 0 || type > 1))
+    || (state && (state < 0 || state > 1)))
+    return endfor(ET.参数内容不合法);
+
+  let carousel = await Carousel.findById(id, {
+    where: { State: 0 }
+  }).catch(err => logger.error(`admin.updateCarousel查询1失败，${err.message}`));
+  if (!carousel) return endfor(ET.记录不存在);
+
+  let count = 0;
+  const update = {};
+  if (title) update.Title = title;
+  if (state) update.State = state;
+  if (postId) {
+    const post = Post.findById(postId, {
+      where: { State: 0 }
+    }).catch(err => `admin.updateCarousel查询post失败,${err.message}`);
+    if (!post) return endfor(ET.记录不存在);
+
+    update.PostId = postId;
+  }
+
+  if (lodash.keys(update).length > 0) {
+    carousel = carousel.update(update)
+      .catch(err => logger.error(`admin.uupdateCarousel更新1失败,${err.message}`));
+    if (!carousel) return endfor(ET.数据异常);
+  }
+
+  if (type) {
+    const op = {
+      where: { State: 0 }
+    };
+    if (type === 0) { //上移
+      op.where.Rank = { $gt: carousel.Rank };
+      op.order = [['Rank', 'ASC']]
+    }
+    else {  //下移
+      op.where.Rank = { $lt: carousel.Rank };
+      op.order = [['Rank', 'DESC']]
+    }
+
+    const dstCarousel = await Carousel.findOne(op)
+      .catch(err => logger.error(`admin.updateCarousel查询2失败，${err.message}`));
+    if (!dstCarousel) return endfor(ET.记录不存在);
+
+    const rank = carousel.Rank;
+    let count = 0;
+    //开启事务更新
+    mysql.transaction(async () => {
+      await carousel.update({ Rank: dstCarousel.Rank })
+        .tap(() => count++);
+    }).then(async () => {
+      await dstCarousel.update({ Rank: rank })
+        .tap(() => count++);
+    }).catch(err => logger.error(`admin.updateCarousel更新2失败`));
+    if (count !== 2) return endfor(ET.数据异常);
+  }
 
   return endfor(ET.成功);
 }

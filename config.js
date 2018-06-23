@@ -1,7 +1,11 @@
 'use strict';
 
 const pack = require('./package.json');
-const rootDir = process.platform === 'win32' ? `C:\\webconfig\\${pack.name}` 
+const isWindows = process.platform === 'win32';
+const rootDir = isWindows ? `C:\\webconfig\\${pack.name}` 
   : `/etc/webconfig/${pack.name}`;
 
-module.exports = require(rootDir);
+const config = require(rootDir);
+config.isWindows = isWindows;
+
+module.exports = config;
