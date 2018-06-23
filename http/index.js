@@ -31,6 +31,7 @@ app.use(async (ctx, next) => {
     ctx.body = { code, msg, data, __requestid };
   };
 
+  logger.info(`${ctx.originalUrl},${JSON.stringify(ctx.request.body)},${__requestid},${ctx.ip}}`);
   await next();
 });
 
@@ -40,6 +41,8 @@ app.use(async (ctx, next) => {
   } catch (err){
     ctx.status = 500;
     ctx.body = `error:${err.message}`;
+  } finally{
+    logger.info(`${JSON.stringify(ctx.body)},${ctx.status},${ctx.__requestid}`);
   }
 });
 

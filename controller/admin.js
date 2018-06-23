@@ -14,10 +14,11 @@ const { User, Level, Dept, Post, Privilege, Carousel } = mysql.models;
 const logger = global.logger;
 const config = global.config;
 
-module.exports = { getLevelList, addLevel, updateLevel, getDeptList, addDept,
+module.exports = {
+  getLevelList, addLevel, updateLevel, getDeptList, addDept,
   updateDept, getUserPage, addUser, importUsers, updateUser, getPostPage, updatePost,
   getCarouselList, getCarouselInfo, addCarousel, updateCarousel
- };
+};
 
 /**
  * 获取部门等级列表
@@ -58,7 +59,7 @@ async function addLevel({ params, endfor }) {
     await Level.create({ Name: name })
   ).catch(err => logger.error(`admin.addLevel新增失败,${err.message}`));
 
-  return endfor(level ? 成功 : 数据异常);
+  return endfor(level ? ET.成功 : ET.数据异常);
 }
 
 /**
@@ -73,62 +74,60 @@ async function addLevel({ params, endfor }) {
 async function updateLevel({ params, endfor }) {
   const { id, name, state, type } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (!isNaN(id)) return endfor(ET.参数内容不合法);
+  if (isNaN(id)) return endfor(ET.参数不合法);
+  if (type && !(+type >= 1 && +type <= 2))
+    return endfor(ET.参数不合法);
 
-  const level = await Level.findOne({ Id: +id })
+  let level = await Level.findById(+id)
     .catch(err => logger.error(`admin.updateLevel查询1失败，${err.message}`));
   if (!level) return endfor(ET.记录不存在);
 
-  let count = 0;
   if (name) {
-    count = await Level.update(
-      { Name: name },
-      { where: { Id: +id } })
-      .catch(err => logger.error(`admin.updateLevel更新name失败，${err.message}`));
+    level = await level.update(
+      { Name: name }
+    ).catch(err => logger.error(`admin.updateLevel更新name失败，${err.message}`));
   } else if (state) {
-    count = await Level.update(
-      { State: state },
-      { where: { Id: +id } })
-      .catch(err => logger.error(`admin.updateLevel更新state失败，${err.message}`));
+    level = await level.update(
+      { State: state }
+    ).catch(err => logger.error(`admin.updateLevel更新state失败，${err.message}`));
   } else if (type) {
     const op = {};
-    if (type === 0) { //上移
+    if (type == 1) { //上移
       op.where = { Rank: { [Sequelize.Op.gt]: level.Rank } };
       op.order = [['Rank', 'ASC']]
     }
-    else {
+    else if (type == 2) {
       op.where = { Rank: { [Sequelize.Op.lt]: level.Rank } };
       op.order = [['Rank', 'DESC']]
     }
 
     const dstLevel = await Level.findOne(op)
       .catch(err => logger.error(`admin.updateLevel查询2失败，${err.message}`));
-    if (!dstLevel) return endfor(26);
+    if (!dstLevel) return endfor(ET.记录不存在);
 
     const rank = level.Rank;
-    level = await level.update({ Rank: dstLevel.Rank })
-      .tap(() => count++)
-      .catch(err => logger.error(`admin.updateLevel更新rank1失败，${err.message}`));
-
-    dstLevel = await dstLevel.update({ Rank: rank })
-      .tap(() => count++)
-      .catch(err => logger.error(`admin.updateLevel更新rank2失败，${err.message}`));
+    level = await mysql.transaction(async () => {
+      await level.update({ Rank: dstLevel.Rank });
+      return await dstLevel.update({ Rank: rank });
+    }).catch(err => logger.error(`admin.updateLevel更新事务失败,${err.message}`));
   }
-  return endfor(count ? 40 : 0);
+
+  return endfor(level ? ET.成功 : ET.数据异常);
 }
 
 
 async function getDeptList({ params, endfor }) {
-  const { levelId } = params;
-  if (!levelId) return endfor(20);
+  const { id } = params;
+  if (!id) return endfor(ET.缺少必须参数);
+  if (isNaN(id)) return endfor(ET.参数不合法);
 
   const depts = await Dept.findAll({
-    where: { LevelId: levelId, State: 0 },
+    where: { LevelId: +id, State: 0 },
     raw: true
   }).catch(err => logger.error(`admin.getDeptList查询dept失败，${err.message}`));
 
-  if (!depts) return endfor(40);
-  return endfor(0, { items: depts });
+  if (!depts) return endfor(ET.数据异常);
+  return endfor(ET.成功, { items: depts });
 }
 
 /**
@@ -138,24 +137,25 @@ async function getDeptList({ params, endfor }) {
  * @param {*} params.name 部门名称
  */
 async function addDept({ params, endfor }) {
-  const { id, name } = params;
-  if (!(id && name)) return endfor(20);
+  const { levelId, name } = params;
+  if (!(levelId && name)) return endfor(ET.缺少必须参数);
+  if (isNaN(levelId)) return endfor(ET.参数不合法);
 
-  const level = await Level.findOne({
-    where: { Id: +id, State: 0 }
-  }).catch(err => `admin.addDept查询level失败，${err.message}`);
-  if (level) return endfor(25);
+  const level = await Level.findById(+levelId,
+    { where: { State: 0 } }
+  ).catch(err => `admin.addDept查询level失败，${err.message}`);
+  if (!level) return endfor(ET.记录不存在);
 
   let dept = await Dept.findOne({
     where: { Name: name, State: 0 }
   }).catch(err => `admin.addDept查询dept失败，${err.message}`);
-  if (dept) return endfor(107);
+  if (dept) return endfor(ET.记录已存在);
 
   dept = await Dept.create({
-    Name: name, LevelId: +id
+    Name: name, LevelId: +levelId
   }).catch(err => `admin.addDept查询dept失败，${err.message}`);
 
-  return endfor(dept ? 0 : 40);
+  return endfor(dept ? ET.成功 : ET.数据异常);
 }
 
 /**
@@ -167,48 +167,49 @@ async function addDept({ params, endfor }) {
  */
 async function updateDept({ params, endfor }) {
   const { id, name, state } = params;
-  if (!id || !(name && state)) return endfor(20);
+  if (!id || !(name || state)) return endfor(ET.缺少必须参数);
+  if (isNaN(id)) return endfor(ET.参数不合法);
 
   let dept = await Dept.findOne({
     where: { Id: +id }
   }).catch(err => logger.error(`admin.updateDept查询dept1失败，${err.message}`));
-  if (!dept) return endfor(25);
+  if (!dept) return endfor(ET.记录不存在);
 
-  let count = 0;
   if (name) {
-    const de = await Dept.findOne({
+    const dpt = await Dept.findOne({
       where: { Name: name }
     }).catch(err => logger.error(`admin.updateDept查询dept2失败，${err.message}`));
-    if (de) return endfor(107);
+    if (dpt) return endfor(ET.记录已存在);
 
-    count = await dept.update({ Name: name })
+    dept = await dept.update({ Name: name })
       .catch(err => logger.error(`admin.updateDept更新name失败，${err.message}`));
   } else {
-    count = await dept.update({ State: +state })
+    dept = await dept.update({ State: +state })
       .catch(err => logger.error(`admin.updateDept更新state失败，${err.message}`));
   }
-  return endfor(count ? 0 : 40);
+  return endfor(dept ? ET.成功 : ET.数据异常);
 }
 
 /**
- * 
+ * 获取用户页
  * @param {*} param0 
  */
 async function getUserPage({ params, endfor }) {
   const { deptId, key, page = 1, size = 10 } = params;
   const where = {};
-  if (deptId) where.DeptId = { [Sequelize.Op.in]: deptId.split(',') };
-  if (key) where.Key = key;
+  if (deptId) where.DeptId = { $in: deptId.split(',') };
+  if (key) where.Key = { $like: `%${key}%` };
 
-  const { count, rows } = await User.findAndCountAll({
+  const result = await User.findAndCountAll({
     where,
     raw: true,
     offset: (page - 1) * size,
     limit: size
   }).catch(err => logger.error(`admin.getUsers查询users失败，${err.message}`));
+  if (!result) return endfor(ET.数据异常);
 
-  if (!rows) return endfor(40);
-  return endfor(0, { count, items: rows });
+  const { count, rows } = result;
+  return endfor(ET.成功, { count, items: rows });
 }
 
 /**
@@ -220,56 +221,59 @@ async function getUserPage({ params, endfor }) {
  */
 async function addUser({ params, endfor }) {
   const { number, name, deptId } = params;
-  if (!number || !name || !isNaN(deptId))
-    return endfor(20);
+  if (!(number && name && deptId))
+    return endfor(ET.缺少必须参数);
+  if (isNaN(deptId)) return endfor(ET.参数不合法);
 
   let user = await User.findOne({
     where: {
-      $or: [{ Number: +number }, { Name: name }],
+      Number: number,
       State: 0
     }
   }).catch(err => logger.error(`admin.addUser查询user失败，${err.message}`));
-  if (user) return endfor(107);
+  if (user) return endfor(ET.记录已存在);
 
   const dept = await Dept.findOne({
-    where: { Id: +id }
+    where: { Id: +deptId }
   }).catch(err => logger.error(`admin.addUser查询dept失败，${err.message}`));
-  if (!dept) return endfor(25);
+  if (!dept) return endfor(ET.记录不存在);
 
   user = User.create({
-    Number: number, Name: name, DeptId: +deptid, Pass: number,
+    Number: number, Name: name, DeptId: +deptId,
+    Pass: tools.generatePass(number),
     Key: `${name}_${number}`, Avater: config.defaultAvater
   }).catch(err => logger.error(`admin.addUser新增失败，${err.message}`));
-  return endfor(user ? 0 : 40);
+  return endfor(user ? ET.成功 : ET.数据异常);
 }
 
 /**
  * 
  * @param {*} params
  */
-async function importUsers({ params, endfor }) {
-  const filePath = config.tmpPath;
-  if (!fs.existsSync(filePath)) {
-    fs.mkdirSync(filePath);
+async function importUsers(ctx) {
+  const { endfor } = ctx;
+
+  const { excelOptions, tmpPath } = config;
+  if (!fs.existsSync(tmpPath)) {
+    fs.mkdirSync(tmpPath);
   }
-
-  const options = {};
   //尝试保存上传的附件
-  const fileNames = await tools.busboy(ctx, filePath, ['user'], options)
+  const fileNames = await tools.saveFile(ctx, tmpPath, ['user'], excelOptions)
     .catch(err => logger.error(`${err.message}`));
-  if (!fileNames || fileNames.length === 0) return endfor(ET.文件上传失败);
+  if (!fileNames || fileNames.length === 0)
+    return endfor(ET.文件上传失败);
 
-  const absolutePath = path.join(filePath, fileNames[0]);
+  const absolutePath = path.join(tmpPath, fileNames[0].fileName);
   const data = xlsx.parse(absolutePath);
-  fs.unlink(absolutePath);
+  fs.unlink(absolutePath, lodash.noop);
 
-  if (!data || data.length === 0) return endfor(ET.文件格式不正确);
+  if (!data || data.length === 0) return endfor(ET.文件内容不正确);
   const lines = data[0].data;
-  if (!lines || lines.length === 0) return endfor(ET.文件格式不正确);
+  if (!lines || lines.length === 0) return endfor(ET.文件内容不正确);
 
   //number去重
-  const numbers = lines.Map(line => line[0]);
-  const users = await User.findAll({
+  const numbers = lines.map(line => line[0]);
+  let users = await User.findAll({
     attributes: ['Number'],
     where: {
       State: 0,
@@ -277,7 +281,7 @@ async function importUsers({ params, endfor }) {
     }
   }).catch(err => logger.error(`admin.importUser查询user失败,${err.message}`));
   if (!users) return endfor(ET.数据异常);
-  if (user.length > 0) return endfor(ET.记录已存在, { items: users.Map(user => user.Number) });
+  if (users.length > 0) return endfor(ET.记录已存在, { items: users.map(user => user.Number) });
 
   const depts = await Dept.findAll({
     attributes: ['Id', 'Name'],
@@ -288,20 +292,25 @@ async function importUsers({ params, endfor }) {
   if (!depts) return endfor(ET.数据异常);
 
   const deptMap = new Map();
+  const deptNames = new Array();
   depts.forEach(dept => {
-    deptMap[dept.Name] = deptMap[dept.Id]
+    deptMap.set(dept.Name, dept.Id);
+    deptNames.push(dept.Name);
   });
 
   const values = [];
+  //过滤不存在的部门
   lines.forEach(line => {
-    if (!deptMap.keys.includes(line[2])) return;
+    const [number, name, dept] = line;
+    if (!deptNames.includes(dept)) return;
     values.push({
-      Number: line[0], Name: line[1], DeptId: deptMap[line[2]], Pass: line[0],
+      Number: number, Name: name, DeptId: deptMap.get(dept),
+      Pass: tools.generatePass(number.toString()),
       Key: `${name}_${number}`, Avater: config.defaultAvater
     })
   });
 
-  const users = await User.bulkCreate(values)
+  users = await User.bulkCreate(values)
     .catch(err => logger.error(`admin.importUser插入失败,${err.message}`));
   if (!users) return endfor(ET.数据异常);
 
@@ -314,27 +323,29 @@ async function importUsers({ params, endfor }) {
  */
 async function updateUser({ params, endfor }) {
   const { id, pass, number, name, deptid, isadmin, state, privilege } = params;
-  if (!id || !(number && name && deptid && pass && isadmin && state))
+  if (!id || !(number || name || deptid || pass || isadmin || state))
     return endfor(ET.缺少必须参数);
+  if (isNaN(id)) return endfor(ET.参数不合法);
+
+  let types = [];
   if (privilege) {
-    const types = privilege.split(',');
+    types = privilege.split(',');
     if (types.length > 0) {
       let valid = true;
       types.forEach(type => valid &= isNaN(type));
-      if (!valid) return endfor(ET.参数内容不合法);
+      if (!valid) return endfor(ET.参数不合法);
     }
   }
 
-  let user = User.findOne({
-    where: { Id: id }
-  }).catch(err => `updateUser查询user1失败,${err.message}`);
+  let user = await User.findById(+id)
+    .catch(err => `updateUser查询user1失败,${err.message}`);
   if (!user) return endfor(ET.记录不存在);
 
   const values = {};
-  if (number || name) {
+  if (number) {
     user = await User.findOne({
       where: {
-        $or: [{ Number: +number }, { Name: name }],
+        Number: +number,
         State: 0
       }
     }).catch(err => logger.error(`updateUser查询user2失败，${err.message}`));
@@ -348,19 +359,18 @@ async function updateUser({ params, endfor }) {
     if (!dept) return endfor(ET.记录不存在);
   }
 
-  user = mysql.transaction(async () => {
-    await Privilege.destroy({
+  user = await mysql.transaction(async (t) => {
+    return await Privilege.destroy({
       where: { UserId: id }
-    });
-  }).then(async () => {
-    const types = privilege.split(',');
-    await Privilege.bulkCreate(types.Map(type => {
-      return { UserId: id, Type: type };
-    }))
-  }).then(async () => {
-    const values = lodash.pick(params, ['number', 'name',
-      'deptid', 'pass', 'isadmin', 'state']);
-    return await user.update(values);
+    }, {transaction: t}).then(async () => {
+      // if (types.length > 0)
+        await Privilege.bulkCreate(types.map(type => {
+          return { UserId: id, Type: type };
+        }), {transaction: t});
+    }).then(async () => {
+      const values = lodash.pick(params, ['number', 'name', 'deptid', 'pass', 'isadmin', 'state']);
+      return await user.update(values, {transaction: t});
+    })
   }).catch(err => logger.error(`admin.updateUser更新失败,${err.message}`));
 
   return endfor(user ? ET.成功 : ET.数据异常);
@@ -476,7 +486,7 @@ async function getCarouselInfo({ params, endfor }) {
  * @param {} param0 
  */
 async function addCarousel({ params, user, endfor }) {
-  const { title, url, postId };
+  const { title, url, postId } = params;
   if (!(url && postId))
     return endfor(ET.缺少必须参数);
   if (ur.length > 128 || (title && title.length > 128) || !isNaN(postId))

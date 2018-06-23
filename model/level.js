@@ -20,6 +20,7 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.TINYINT,
         field: 'rank',
         allowNull: false,
+        defaultValue: 1,
         comment: ''
       },
       State: {

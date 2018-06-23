@@ -321,7 +321,7 @@ async function sendReply({ params, user, endfor }) {
 async function deleteReply({ params, user, endfor }) {
   const { id } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (!isNaN(id)) return endfor(ET.参数内容不合法);
+  if (!isNaN(id)) return endfor(ET.参数不合法);
 
   const reply = Reply.findById(id, {
     where: {
