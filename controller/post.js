@@ -101,16 +101,13 @@ async function publish({ params, user, endfor }) {
 
   //创建可见关系记录
   if (deptId) {
-    const postDepts = await mysql.transaction(async () => {
-      await PostDept.destroy({
+    const postDepts = await mysql.transaction(() =>
+      PostDept.destroy({
         where: { PostId: post.Id }
-      });
-    }).then(async () =>
-      await PostDept.bulkCreate(
-        lodash.map(deptId.split(','), id => {
-          return { PostId: postid, DeptId: +id };
-        })
-      )
+      }).then(() =>
+        PostDept.bulkCreate(deptId.split(',').map(id => {
+          return { PostId: postid, DeptId: +id }
+        })))
     ).catch(err => logger.error(`post.publish增删PostDept失败,${err.message}`));
 
     if (!postDepts) return endfor(ET.数据异常);
@@ -301,14 +298,14 @@ async function sendReply({ params, user, endfor }) {
     beUserId = reply.UserId;
   }
 
-  const tip = await mysql.transaction(async () => {
-    return await Reply.create(value);
-  }).then(async (reply) => {
-    return await Tip.create({
-      PostId: id, UserId: beUserId, ReplyUserId: user.Id,
-      ReplyId: reply.Id
+  const tip = await mysql.transaction(() =>
+    Reply.create(value).then(() => {
+      return Tip.create({
+        PostId: id, UserId: beUserId,
+        ReplyUserId: user.Id, ReplyId: reply.Id
+      })
     })
-  }).catch(err => logger.error(`post.setReply创建失败,${err.message}`));
+  ).catch(err => logger.error(`post.setReply创建失败,${err.message}`));
   if (!tip) return endfor(ET.数据异常);
 
   return endfor(ET.成功);
@@ -373,7 +370,7 @@ async function getTipPage({ params, user, endfor }) {
 
   Tip.update({ State: 1 }, { where: { UserId: user.Id } })
     .catch(err => logger.error(`post.getTipPage更新tip失败,${err.message}`));
-  
+
   const { rows, count } = result;
   return endfor(ET.成功, { count, items: rows });
 }

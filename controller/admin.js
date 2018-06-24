@@ -51,13 +51,14 @@ async function addLevel({ params, endfor }) {
   if (level) return endfor(ET.记录已存在);
 
   //所有已存在的记录rank+1
-  level = await mysql.transaction(async () => {
-    await Level.update(
+  level = await mysql.transaction(() => {
+    return Level.update(
       { Rank: mysql.literal('`rank` + 1') },
-      { where: { State: 0 } });
-  }).then(async () =>
-    await Level.create({ Name: name })
-  ).catch(err => logger.error(`admin.addLevel新增失败,${err.message}`));
+      { where: { State: 0 } }
+    ).then(() => {
+      return Level.create({ Name: name })
+    });
+  }).catch(err => logger.error(`admin.addLevel新增失败,${err.message}`));
 
   return endfor(level ? ET.成功 : ET.数据异常);
 }
@@ -106,9 +107,9 @@ async function updateLevel({ params, endfor }) {
     if (!dstLevel) return endfor(ET.记录不存在);
 
     const rank = level.Rank;
-    level = await mysql.transaction(async () => {
-      await level.update({ Rank: dstLevel.Rank });
-      return await dstLevel.update({ Rank: rank });
+    level = await mysql.transaction(() => {
+      return level.update({ Rank: dstLevel.Rank })
+        .then(() => dstLevel.update({ Rank: rank }));
     }).catch(err => logger.error(`admin.updateLevel更新事务失败,${err.message}`));
   }
 
@@ -175,18 +176,18 @@ async function updateDept({ params, endfor }) {
   }).catch(err => logger.error(`admin.updateDept查询dept1失败，${err.message}`));
   if (!dept) return endfor(ET.记录不存在);
 
+  const value = {};
   if (name) {
     const dpt = await Dept.findOne({
       where: { Name: name }
     }).catch(err => logger.error(`admin.updateDept查询dept2失败，${err.message}`));
     if (dpt) return endfor(ET.记录已存在);
-
-    dept = await dept.update({ Name: name })
-      .catch(err => logger.error(`admin.updateDept更新name失败，${err.message}`));
+    value.Name = name;
   } else {
-    dept = await dept.update({ State: +state })
-      .catch(err => logger.error(`admin.updateDept更新state失败，${err.message}`));
+    value.State = +state;
   }
+  dept = await dept.update(value)
+    .catch(err => logger.error(`admin.updateDept更新失败，${JSON.stringify(value)},${err.message}`));
   return endfor(dept ? ET.成功 : ET.数据异常);
 }
 
@@ -238,7 +239,7 @@ async function addUser({ params, endfor }) {
   }).catch(err => logger.error(`admin.addUser查询dept失败，${err.message}`));
   if (!dept) return endfor(ET.记录不存在);
 
-  user = User.create({
+  user = await User.create({
     Number: number, Name: name, DeptId: +deptId,
     Pass: tools.generatePass(number),
     Key: `${name}_${number}`, Avater: config.defaultAvater
@@ -359,17 +360,17 @@ async function updateUser({ params, endfor }) {
     if (!dept) return endfor(ET.记录不存在);
   }
 
-  user = await mysql.transaction(async (t) => {
-    return await Privilege.destroy({
+  user = await mysql.transaction(() => {
+    return Privilege.destroy({
       where: { UserId: id }
-    }, {transaction: t}).then(async () => {
-      // if (types.length > 0)
-        await Privilege.bulkCreate(types.map(type => {
-          return { UserId: id, Type: type };
-        }), {transaction: t});
-    }).then(async () => {
-      const values = lodash.pick(params, ['number', 'name', 'deptid', 'pass', 'isadmin', 'state']);
-      return await user.update(values, {transaction: t});
+    }).then(() => {
+      return Privilege.bulkCreate(types.map(type => {
+        return { UserId: id, Type: type };
+      }))
+    }).then(() => {
+      const values = lodash.pick(params, ['number', 'name',
+        'deptid', 'pass', 'isadmin', 'state']);
+      return user.update(values);
     })
   }).catch(err => logger.error(`admin.updateUser更新失败,${err.message}`));
 
@@ -498,16 +499,17 @@ async function addCarousel({ params, user, endfor }) {
   if (!post) return endfor(ET.记录不存在);
 
   //所有已存在的记录rank+1
-  const carousel = await mysql.transaction(async () => {
-    await Carousel.update(
+  const carousel = await mysql.transaction(() => {
+    return Carousel.update(
       { Rank: mysql.literal('`rank` + 1') },
-      { where: { State: 0 } });
-  }).then(async () =>
-    await Carousel.create({
-      PostId: postId, Title: title, UserId: user.Id,
-      Url: url
-    })
-  ).catch(err => logger.error(`admin.addCarousel更新失败,${err.message}`));
+      { where: { State: 0 } }
+    ).then(() =>
+      Carousel.create({
+        PostId: postId, Title: title,
+        UserId: user.Id, Url: url
+      })
+    )
+  }).catch(err => logger.error(`admin.addCarousel更新失败,${err.message}`));
   if (!carousel) return endfor(ET.数据异常);
 
   return endfor(ET.成功);
@@ -571,15 +573,11 @@ async function updateCarousel({ params, endfor }) {
     const rank = carousel.Rank;
     let count = 0;
     //开启事务更新
-    mysql.transaction(async () => {
-      await carousel.update({ Rank: dstCarousel.Rank })
-        .tap(() => count++);
-    }).then(async () => {
-      await dstCarousel.update({ Rank: rank })
-        .tap(() => count++);
+    carousel = await mysql.transaction(() => {
+      carousel.update({ Rank: dstCarousel.Rank })
+        .then(() => dstCarousel.update({ Rank: rank }))
     }).catch(err => logger.error(`admin.updateCarousel更新2失败`));
-    if (count !== 2) return endfor(ET.数据异常);
   }
 
-  return endfor(ET.成功);
+  return endfor(carousel ? ET.成功 : ET.数据异常);
 }
