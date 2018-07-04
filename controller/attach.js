@@ -10,7 +10,9 @@ const { User, Post, PostDept, Attach } = mysql.models;
 const logger = global.logger;
 const config = global.config;
 
-module.exports = { uploadAttach };
+const { checkpara_int, checkpara_str } = tools;
+
+module.exports = { uploadAttach, getList, getInfo, download };
 
 /**
  * 上传附件(交作业)

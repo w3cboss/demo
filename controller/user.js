@@ -8,49 +8,52 @@ const tools = require('../lib/tools')
 const redis = require('../lib/redis');
 
 const ET = require('../ET');
+const { checkpara_int, checkpara_str } = tools;
 
 const { User, Dept, Privilege, Tip } = mysql.models;
 const logger = global.logger;
 const config = global.config;
 
-module.exports = { getLevels, addLevel };
+module.exports = { login, changePass, uploadImg, setAvater, getInfo };
 
 /**
  * 登录接口
  * @param {string} params.number 工号
- * @param {string} params.passmd5 初始密码的md5值
+ * @param {string} params.pass 保存密码
  */
 async function login(ctx) {
   const { params, endfor } = ctx;
-  const { number, passmd5 } = params;
-  if (!number || !passmd5 || passmd5.length != 32)
-    return endfor(20);
+  const { number, pass } = params;
+  if (!(number && pass)) return endfor(ET.缺少必须参数);
+  if (!checkpara_str(number, 1, 16) || !checkpara_str(pass, 32, 32))
+    return endfor(ET.参数不合法);
 
-  const pass = tools.md5(passmd5);  //原文进行两次md5得到密文
   const user = await User.find({
+    attributes: ['Number', 'Pass'],
     where: { Number: number, State: 0 }
   }).catch(err => logger.error(`login查询user1失败,${err.message}`));
 
-  if (!user) return endfor(25);
-  if (user.Pass != pass) return endfor(31);
+  if (!user) return endfor(ET.记录不存在);
+  if (user.Pass != pass) return endfor(ET.密码不正确);
 
   const token = UUID.v4().replace(/\W/g, '');
-  const succ = redis.set(token, number, 'EX', 7 * 24 * 3600)
+  const succ = await redis.set(`user:${token}`, number, 'EX', 7 * 24 * 3600)
     .then(() =>  true)
     .catch(err => logger.error(`login setredis失败,${err.message}`));
 
-  if (succ) ctx.cookies.set(cookieKey, token);
-  return endfor(succ ? 0 : 40);
+  if (succ) ctx.cookies.set(config.cookieKey, token);
+  return endfor(succ ? ET.成功 : ET.失败);
 }
 
 /**
  * 修改密码
  * @param {*} param0 
  */
-async function setPassword({ params, user, endfor }) {
+async function changePass({ params, user, endfor }) {
   const { pass, newpass } = params;
   if (!(pass && newpass)) return endfor(ET.缺少必须参数);
-  if (newpass.length < 6) return endfor(ET.参数不合法);
+  if (!checkpara_str(pass, 32, 32) || !checkpara_str(newpass, 32, 32)) 
+    return endfor(ET.参数不合法);
   if (user.pass != pass) return endfor(ET.密码不正确);
 
   const newUser = await user.update({ Pass: newpass })
@@ -68,15 +71,30 @@ async function uploadImg(ctx) {
   const { user, endfor } = ctx;
 
   const date = new Date();
-  const filePath = `${config.imgPath}/${date.getFullYear}${date.getMonth}`;
-  if (!fs.existsSync(filePath))
-    fs.mkdirSync(filePath);
+  let month = date.getMonth().toString();
+  if (month.length < 2) month = `0${month}`;
+  const path = `${date.getFullYear()}${month}/${user.Number}`;
+  const dirPath = `${config.imgPath}/${path}`;
+  tools.mkMultiDir(dirPath);
 
-  const filePaths = await tools.busboy(ctx, filePath, 'img', config.imgOptions);
-  if (!filePaths || filePaths.length === 0) 
+  const imgOptions = config.imgOptions;
+  if (!imgOptions) throw new Error('缺少必要配置:imgOptinos!');
+
+  const { fileSize, files, rename, allowExts } = imgOptions;
+  const options = {
+    limits: {
+      fileSize: fileSize || 1024 * 1024 * 3,
+      files: files || 1,
+    },
+    allowExts,
+    rename,
+  }
+  const fileArr = await tools.saveFile(ctx, dirPath, 'img', options)
+    .catch(err => logger.error(`user.uploadImg上传文件失败,${err.message}`));
+  if (!fileArr || fileArr.length === 0) 
     return endfor(ET.文件上传失败);
 
-  return endfor(ET.成功, { url: '虚拟目录' });
+  return endfor(ET.成功, { url: `/img/${path}/${fileArr[0].fileName}` });
 }
 
 /**
@@ -84,11 +102,14 @@ async function uploadImg(ctx) {
  * @param {*} param0 
  */
 async function setAvater({ params, user, endfor }) {
-  const { avater } =  params;
-  if (!avater) return endfor(ET.缺少必须参数);
-  if (avater.length > 128) return endfor(ET.参数不合法);
+  const { url } =  params;
+  if (!url) return endfor(ET.缺少必须参数);
+  if (!checkpara_str(url, 10, 128)) return endfor(ET.参数不合法);
 
-  const newUser = await user.update({ Avater: avater })
+  const regex = /^\/img\/\d{6}\/\d+\/\w+\.\w+$/;
+  if (!regex.test(url)) return endfor(ET.参数不合法);
+
+  const newUser = await user.update({ Avater: url })
     .catch(err => logger.error(`user.setAvater更新user失败,${err.message}`));
   if (!newUser) return endfor(ET.数据异常);
 

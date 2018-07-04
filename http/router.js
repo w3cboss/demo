@@ -3,37 +3,43 @@
 const Router = require('koa-router');
 const multer = require('./multer');
 
-const test = require('../controller/test');
 const admin = require('../controller/admin');
+const user = require('../controller/user');
 const post = require('../controller/post');
 const attach = require('../controller/attach');
 
 const router = new Router();
 
-router.all('/admin/getlevellist', admin.getLevelList);
-router.all('/admin/addlevel', admin.addLevel);
-router.all('/admin/updatelevel', admin.updateLevel);
-router.all('/admin/getdeptlist', admin.getDeptList);
-router.all('/admin/adddept', admin.addDept);
-router.all('/admin/updatedept', admin.updateDept);
-router.all('/admin/getuserpage', admin.getUserPage);
-router.all('/admin/adduser', admin.addUser);
-router.all('/admin/importusers', admin.importUsers);
-router.all('/admin/updateuser', admin.updateUser);
-router.all('/admin/getpostpage', admin.getPostPage);
-router.all('/admin/updatepost', admin.updatePost);
-router.all('/admin/getcrousellist', admin.getCarouselList);
-router.all('/admin/addcarousel', admin.addCarousel);
-router.all('/admin/updatecarousel', admin.updateCarousel);
+router.all('/admin/get_levellist', admin.getLevelList);
+router.all('/admin/add_level', admin.addLevel);
+router.all('/admin/update_level', admin.updateLevel);
+router.all('/admin/get_deptlist', admin.getDeptList);
+router.all('/admin/add_dept', admin.addDept);
+router.all('/admin/update_dept', admin.updateDept);
+router.all('/admin/get_userpage', admin.getUserPage);
+router.all('/admin/add_user', admin.addUser);
+router.all('/admin/import_users', admin.importUsers);
+router.all('/admin/update_user', admin.updateUser);
+router.all('/admin/get_postpage', admin.getPostPage);
+router.all('/admin/update_post', admin.updatePost);
+router.all('/admin/get_crousellist', admin.getCarouselList);
+router.all('/admin/add_carousel', admin.addCarousel);
+router.all('/admin/update_carousel', admin.updateCarousel);
 
-router.all('/post/getinfo', post.getInfo);
+router.all('/user/login', user.login);
+router.all('/user/change_pass', user.changePass);
+router.all('/user/upload_img', user.uploadImg);
+router.all('/user/set_avater', user.setAvater);
+router.all('/user/get_info', user.getInfo);
 
-router.post('/upload/document',  multer().single('file'), 
-ctx => {
-  const f = ctx.req.file;
-  ctx.endfor(0);
-});
+router.all('/post/get_info', post.getInfo);
+router.all('/post/get_page', post.getPage);
+router.all('/post/publish', post.publish);
+router.all('/post/delete', post.del);
 
-router.all('/file/uploadattach', attach.uploadAttach);
+router.all('/attach/get_info', attach.getInfo);
+router.all('/attach/get_list', attach.getList);
+router.all('/attach/upload', attach.uploadAttach);
+router.all('/attach/download', attach.download);
 
 module.exports = router;

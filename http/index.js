@@ -21,7 +21,7 @@ app.use(staticServer(`${path.resolve(__dirname, '..')}/www`));
 
 app.use(async (ctx, next) => {
   const __requestid = ctx.request.query.__requestid || ctx.request.body.__requestid ||
-    uuid.v1().replace(/\W/g, '');
+    uuid.v4().replace(/\W/g, '');
 
   const params = Object.assign({}, ctx.request.query, ctx.request.body);
   ctx.params = params;
@@ -46,7 +46,7 @@ app.use(async (ctx, next) => {
   }
 });
 
-// app.use(checkLogin);
+app.use(checkLogin);
 // app.use(checkPrivileg);
 
 app.use(router.routes());

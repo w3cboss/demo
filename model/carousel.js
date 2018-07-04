@@ -31,7 +31,7 @@ module.exports = function (sequelize, DataTypes) {
         }
       },
       Title: {
-        type: DataTypes.STRING(128),
+        type: DataTypes.STRING(64),
         field: 'title',
         allowNull: false,
         comment: ''

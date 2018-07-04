@@ -40,9 +40,9 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         defaultValue: 1
       },
-      IsAllowAttach: {
+      AllowAttach: {
         type: DataTypes.TINYINT,
-        field: 'is_allowattach',
+        field: 'attach',
         comment: '是否允许上传附件',
         allowNull: false,
         defaultValue: 0

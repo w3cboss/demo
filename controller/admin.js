@@ -9,6 +9,7 @@ const path = require('path');
 
 const ET = require('../ET');
 const tools = require('../lib/tools');
+const { checkpara_int, checkpara_str } = tools;
 
 const { User, Level, Dept, Post, Privilege, Carousel } = mysql.models;
 const logger = global.logger;
@@ -24,7 +25,7 @@ module.exports = {
  * 获取部门等级列表
  * @param {*} param0 
  */
-async function getLevelList({ params, endfor }) {
+async function getLevelList({ endfor }) {
   const levels = await Level.findAll({
     where: { State: 0 },
     raw: true
@@ -42,6 +43,7 @@ async function getLevelList({ params, endfor }) {
 async function addLevel({ params, endfor }) {
   const { name } = params;
   if (!name) return endfor(ET.缺少必须参数);
+  if (!checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
 
   let level = await Level.find({
     where: { Name: name },
@@ -75,8 +77,8 @@ async function addLevel({ params, endfor }) {
 async function updateLevel({ params, endfor }) {
   const { id, name, state, type } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (isNaN(id)) return endfor(ET.参数不合法);
-  if (type && !(+type >= 1 && +type <= 2))
+  if (!checkpara_int(id)) return endfor(ET.参数不合法);
+  if (!checkpara_int(type, 1, 2) || !checkpara_int(state, 0, 1) || !checkpara_str(name, 1, 16))
     return endfor(ET.参数不合法);
 
   let level = await Level.findById(+id)
@@ -120,7 +122,7 @@ async function updateLevel({ params, endfor }) {
 async function getDeptList({ params, endfor }) {
   const { id } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (isNaN(id)) return endfor(ET.参数不合法);
+  if (!checkpara_int(id, 1)) return endfor(ET.参数不合法);
 
   const depts = await Dept.findAll({
     where: { LevelId: +id, State: 0 },
@@ -140,7 +142,7 @@ async function getDeptList({ params, endfor }) {
 async function addDept({ params, endfor }) {
   const { levelId, name } = params;
   if (!(levelId && name)) return endfor(ET.缺少必须参数);
-  if (isNaN(levelId)) return endfor(ET.参数不合法);
+  if (!checkpara_int(levelId) || !checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
 
   const level = await Level.findById(+levelId,
     { where: { State: 0 } }
@@ -169,7 +171,8 @@ async function addDept({ params, endfor }) {
 async function updateDept({ params, endfor }) {
   const { id, name, state } = params;
   if (!id || !(name || state)) return endfor(ET.缺少必须参数);
-  if (isNaN(id)) return endfor(ET.参数不合法);
+  if (!checkpara_int(id) || !checkpara_str(name, 1, 16) || !checkpara_int(state, 0, 1)) 
+    return endfor(ET.参数不合法);
 
   let dept = await Dept.findOne({
     where: { Id: +id }
@@ -198,6 +201,8 @@ async function updateDept({ params, endfor }) {
 async function getUserPage({ params, endfor }) {
   const { deptId, key, page = 1, size = 10 } = params;
   const where = {};
+  if (!checkpara_int(deptId) || !checkpara_str(key, 1))
+    return endfor(ET.参数不合法); 
   if (deptId) where.DeptId = { $in: deptId.split(',') };
   if (key) where.Key = { $like: `%${key}%` };
 
@@ -224,7 +229,8 @@ async function addUser({ params, endfor }) {
   const { number, name, deptId } = params;
   if (!(number && name && deptId))
     return endfor(ET.缺少必须参数);
-  if (isNaN(deptId)) return endfor(ET.参数不合法);
+  if (!checkpara_int(deptId) || !checkpara_str(name, 1, 16) || !checkpara_str(number, 1, 32)) 
+    return endfor(ET.参数不合法);
 
   let user = await User.findOne({
     where: {
@@ -248,7 +254,7 @@ async function addUser({ params, endfor }) {
 }
 
 /**
- * 
+ * 批量导入用户
  * @param {*} params
  */
 async function importUsers(ctx) {
@@ -323,58 +329,71 @@ async function importUsers(ctx) {
  * @param {*} params
  */
 async function updateUser({ params, endfor }) {
-  const { id, pass, number, name, deptid, isadmin, state, privilege } = params;
-  if (!id || !(number || name || deptid || pass || isadmin || state))
+  const { id, pass, number, name, deptId, isAdmin, state, privilege } = params;
+  if (!id || !(number || name || deptId || pass || isadmin || state))
     return endfor(ET.缺少必须参数);
-  if (isNaN(id)) return endfor(ET.参数不合法);
+  if (!checkpara_int(id) || !checkpara_str(pass, 1, 32) || !checkpara_str(number, 1, 32) ||
+      !checkpara_str(name, 1, 16) || !checkpara_int(deptId) || !checkpara_int(isAdmin, 0, 1) ||
+      !checkpara_int(state, 0, 1) || !checkpara_str(privilege)) 
+    return endfor(ET.参数不合法);
 
   let types = [];
   if (privilege) {
     types = privilege.split(',');
     if (types.length > 0) {
       let valid = true;
-      types.forEach(type => valid &= isNaN(type));
+      types.forEach(type => valid &= !isNaN(type));
       if (!valid) return endfor(ET.参数不合法);
     }
   }
 
-  let user = await User.findById(+id)
-    .catch(err => `updateUser查询user1失败,${err.message}`);
+  let user = await User.findById(+id, {
+    where: { State: 0 }
+  }).catch(err => `updateUser查询user1失败,${err.message}`);
   if (!user) return endfor(ET.记录不存在);
 
   const values = {};
   if (number) {
-    user = await User.findOne({
+    const entity = await User.findOne({
       where: {
-        Number: +number,
-        State: 0
+        Number: number,
+        State: 0,
+        $not: { Id: id }
       }
     }).catch(err => logger.error(`updateUser查询user2失败，${err.message}`));
-    if (user) return endfor(ET.记录已存在);
+    if (entity) return endfor(ET.记录已存在);
   }
 
-  if (deptid) {
-    const dept = await Dept.findOne({
-      where: { Id: +id }
+  if (deptId) {
+    const dept = await Dept.findById(+deptId, {
+      where: { State: 0 }
     }).catch(err => logger.error(`updateUser查询dept失败，${err.message}`));
     if (!dept) return endfor(ET.记录不存在);
   }
 
   user = await mysql.transaction(() => {
     return Privilege.destroy({
-      where: { UserId: id }
+      where: { UserId: +id }
     }).then(() => {
       return Privilege.bulkCreate(types.map(type => {
-        return { UserId: id, Type: type };
-      }))
+        return { UserId: +id, Type: type };
+      }));
     }).then(() => {
-      const values = lodash.pick(params, ['number', 'name',
-        'deptid', 'pass', 'isadmin', 'state']);
+      const values = {};
+      if (number) values.Number = number;
+      if (name) values.Name = name;
+      if (deptId) values.DeptId = +deptId;
+      if (pass) values.Pass = pass;
+      if (isAdmin) values.IsAdmin = isAdmin;
+      if (state) values.State = state;
+      if (number || name)
+        values.Key = `${name || user.Name}_${number || user.Number}`
+
       return user.update(values);
     })
-  }).catch(err => logger.error(`admin.updateUser更新失败,${err.message}`));
+}).catch (err => logger.error(`admin.updateUser更新失败,${err.message}`));
 
-  return endfor(user ? ET.成功 : ET.数据异常);
+return endfor(user ? ET.成功 : ET.数据异常);
 }
 
 /**
@@ -385,6 +404,7 @@ async function getPostPage({ params, endfor }) {
   const { key, page = 1, size = 20 } = params;
   if (page <= 0 || size <= 0)
     return endfor(ET.缺少必须参数);
+  if (!checkpara_str(key)) return endfor(ET.参数不合法);
 
   const where = { State: Post.ESTATE.启用 };
   if (key) where.Title = { $like: `%${key}%` };
@@ -410,7 +430,7 @@ async function updatePost({ params, endfor }) {
   const { id, type } = params;
   if (!(id && type))
     return endfor(ET.缺少必须参数);
-  if (!isNaN(id) || type < 1 || type > 2)
+  if (!checkpara_int(id) || !checkpara_int(type, 1, 3))
     return endfor(ET.参数不合法);
 
   let post = await Post.findById(id, {
@@ -468,7 +488,7 @@ async function getCarouselList({ params, endfor }) {
 async function getCarouselInfo({ params, endfor }) {
   const { id } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (!isNaN(id)) return endfor(ET.参数内容不合法);
+  if (!checkpara_int(id)) return endfor(ET.参数内容不合法);
 
   const carousels = await Carousel.findById(id, {
     where: { State: 0 },
@@ -490,7 +510,7 @@ async function addCarousel({ params, user, endfor }) {
   const { title, url, postId } = params;
   if (!(url && postId))
     return endfor(ET.缺少必须参数);
-  if (ur.length > 128 || (title && title.length > 128) || !isNaN(postId))
+  if (!checkpara_str(url, 1, 128) || !checkpara_str(title, 1, 64) || !checkpara_int(postId))
     return endfor(ET.参数不合法);
 
   const post = await Post.findById(postId, {
@@ -524,9 +544,7 @@ async function updateCarousel({ params, endfor }) {
 
   if (!id || !(postId && title && type && state))
     return endfor(ET.缺少必须参数);
-  if (!isNaN(id) || (postId && !isNaN(postId))
-    || (type && (type < 0 || type > 1))
-    || (state && (state < 0 || state > 1)))
+  if (!checkpara_int(id) || !checkpara_int(postId) || !checkpara_int(state, 0 ,1))
     return endfor(ET.参数内容不合法);
 
   let carousel = await Carousel.findById(id, {

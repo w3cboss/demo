@@ -8,7 +8,7 @@ const ET = require('../ET');
 const config = global.config;
 const logger = global.logger;
 
-const noLoginPaths = ['/file/uploadattach'];
+const noLoginPaths = ['/user/login',];
 
 const privilegeMap = new Map([
   [`${Privilege.ETYPE.超级管理员}`, ['/admin/getlevels', ''
@@ -35,7 +35,7 @@ async function checkLogin(ctx, next) {
   const token = ctx.cookies.get(config.cookieKey);
   if (!token) return endfor(ET.未登录);
 
-  const number = await redis.get(token)
+  const number = await redis.get(`user:${token}`)
     .catch(err => logger.error(`checkLogin读取redis失败,${err.message}`));
   if (!number) return endfor(ET.未登录);
 

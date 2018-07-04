@@ -10,17 +10,21 @@ const ET = require('../ET');
 
 const { User, Post, Dept, PostDept, Reply, Tip } = mysql.models;
 const logger = global.logger;
-const { cookieKey } = global.config;
 
-module.exports = { getPage, getInfo };
+const { checkpara_int, checkpara_str } = tools;
+
+module.exports = { getPage, publish, getInfo, del };
 
 /**
  * 获取帖子列表
- * @param {*} param0 
+ * @param {string} key 关键字 
+ * @param {int} page 页码
+ * @param {int} size 页面大小
+ * @param {int} isme 是否查看本人帖子 1-是
  */
 async function getPage({ params, user, endfor }) {
   const { key, page = 1, size = 20, isme = 0 } = params;
-  if (page <= 0 || size <= 0)
+  if (!checkpara_int(page) || !checkpara_int(size)) 
     return endfor(ET.缺少必须参数);
 
   const where = { State: Post.ESTATE.启用 };
@@ -54,58 +58,54 @@ async function getPage({ params, user, endfor }) {
 
 /**
  * 发布帖子(存为草稿)
- * @param {*} param0 
+ * @param {int} is_attach 是否允许上传附件
+ * @param {int} is_public 帖子是否公开可见
  */
 async function publish({ params, user, endfor }) {
-  const { postid, title, state = Post.ESTATE.启用,
-    ispublic = 1, isattach = 0, deptId, content } = params;
+  const { id, title, state = Post.ESTATE.启用, is_public = 1, is_attach = 0, 
+    dept_id, content } = params;
 
-  if (!(title && content))
-    return endfor(ET.缺少必须参数);
-  if (state != Post.ESTATE.启用 && state != Post.ESTATE.草稿)
+  if (!(title && content)) return endfor(ET.缺少必须参数);
+  if (!checkpara_str(title, 1, 128)) return endfor(ET.参数不合法);
+  if (!checkpara_str(content)) return endfor(ET.参数不合法);
+  if (!checkpara_int(is_public, 0, 1)) return endfor(ET.参数不合法);
+  if (!checkpara_int(is_attach, 0, 1)) return endfor(ET.参数不合法);
+  if (!checkpara_int(state, Post.ESTATE.启用, Post.ESTATE.草稿))
+  return endfor(ET.参数不合法);
+  if (is_public != 0 && !/^\d+(,\d+)*$/.test(dept_id))
     return endfor(ET.参数不合法);
-  if (ispublic != 0 && !/^\d+(,\d+)*$/.test(deptId))
-    return endfor(ET.参数不合法);
-
-  if (+isattach === 1 && user.IsAdmin !== 1)
+  if (+is_attach === 1 && user.IsAdmin !== 1)
     return endfor(ET.没有权限);
 
   let post;
-  if (postid) {
+  if (id) {
     post = Post.find({
-      where: { Id: postid, State: Post.ESTATE.启用 }
+      where: { Id: id, State: Post.ESTATE.启用 }
     }).catch(err => logger.error(`post.publish查询失败,${err.message}`));
     if (!post) return endfor(ET.记录不存在);
 
     post = post.update({
-      Content, content,
-      IsPublic: ispublic,
-      Title: title,
-      State: state,
-      IsAllowAttach: isattach
+      Content, content, IsPublic: is_public,
+      Title: title, State: state, AllowAttach: is_attach
     }).catch(err => logger.error(`post.publish更新失败,${err.message}`));
     if (!post) return endfor(ET.数据异常);
 
   } else {
     post = post.create({
-      UserId: user.Id,
-      Content, content,
-      IsPublic: ispublic,
-      Title: title,
-      State: state,
-      IsAllowAttach: isattach
+      UserId: user.Id, Content, content, IsPublic: is_public,
+      Title: title, State: state, AllowAttach: is_attach
     }).catch(err => logger.error(`post.publish更新失败,${err.message}`));
 
     if (!post) return endfor(ET.数据异常);
   }
 
   //创建可见关系记录
-  if (deptId) {
+  if (dept_id) {
     const postDepts = await mysql.transaction(() =>
       PostDept.destroy({
         where: { PostId: post.Id }
       }).then(() =>
-        PostDept.bulkCreate(deptId.split(',').map(id => {
+        PostDept.bulkCreate(dept_id.split(',').map(id => {
           return { PostId: postid, DeptId: +id }
         })))
     ).catch(err => logger.error(`post.publish增删PostDept失败,${err.message}`));
