@@ -11,11 +11,15 @@ const logger = global.logger;
 const noLoginPaths = ['/user/login',];
 
 const privilegeMap = new Map([
-  [`${Privilege.ETYPE.超级管理员}`, ['/admin/getlevels', ''
-
+  [`${Privilege.ETYPE.超级管理员}`, ['/admin/get_levellist', '/admin/add_level', '/admin/get_deptlist',
+    '/admin/add_dept', '/admin/update_dept', '/admin/get_userpage', '/admin/add_user', 
+    '/admin/import_users', '/admin/update_user', '/admin/get_postpage', '/admin/update_post', 
+    '/admin/get_carousellist', '/admin/get_carouselinfo', '/admin/add_carousel', '/admin/update_carousel'
   ]],
-  [`${Privilege.ETYPE.发布轮播图}`, ['/carousel/add', '']
-  ],
+  [`${Privilege.ETYPE.发布轮播图}`, ['/admin/get_carousellist', '/admin/get_carouselinfo', '/admin/add_carousel',
+    '/admin/update_carousel'
+  ]],
+  [`${Privilege.ETYPE.管理帖子}`, ['/admin/get_postpage', '/admin/update_post']]
 ]);
 
 module.exports = { checkLogin, checkPrivileg };
@@ -63,7 +67,7 @@ async function checkLogin(ctx, next) {
  */
 async function checkPrivileg(ctx, next) {
   const { endfor, user } = ctx;
-  
+
   const privileges = await Privilege.findAll({
     where: { UserId: user.Id }
   }).then(rows => rows.map(row => row.Type))

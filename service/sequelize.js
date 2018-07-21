@@ -4,7 +4,7 @@ const Sequelize = require('sequelize');
 const cls = require('continuation-local-storage');
 
 const namespace = cls.createNamespace('default');
-Sequelize.useCLS(namespace);
+Sequelize.useCLS(namespace);  //自动传递transaction对象
 
 function createInstance(uri, options) {
   const sequelize = new Sequelize(uri, options);

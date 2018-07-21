@@ -21,35 +21,40 @@ module.exports = { uploadAttach, getList, getInfo, download };
 async function uploadAttach(ctx) {
   const { params, user, endfor } = ctx;
   const { id } = params;
+  if (!id) return endfor(ET.缺少必须参数);
+  if (!checkpara_int(id)) return endfor(ET.参数内容不合法);
 
-  const post = await Post.findById(id, {
-    where: { State: 0 },
+  const post = await Post.findOne({
+    where: { 
+      Id: +id,
+      State: 0 
+    },
     include: {
       model: PostDept
     }
   }).catch(err => logger.error(`attach.upload查询post失败,${err.message}`));
   if (!post) return endfor(ET.记录不存在);
 
-  if (!post.IsAllowAttach === 1)
+  if (post.AllowAttach !== 1)
     return endfor(ET.没有权限);
   if (!post.IsPublic) {
-    const deptIds = post.PostDept.map(row => row.DeptId);
+    const deptIds = post.PostDepts.map(row => row.DeptId);
     if (!deptIds.includes(user.DeptId)) return endfor(ET.没有权限);
   }
 
+  const { fileSize, files } = config.attachOptions;
   const options = {
     limits: {
-      fileSize: 1024 * 1024 * 10,
-      files: 1
-    }
+      fileSize: fileSize || 1024 * 1024 * 10,
+      files: files || 1,
+    },
   };
-  
   const filePath = `${config.attachPath}/${id}/${user.Id}`;
   if (!fs.existsSync(filePath)) {
-    fs.mkdirSync(filePath);
+    tools.mkMultiDir(filePath);
   }
   //尝试保存上传的附件
-  const fileNames = await tools.busboy(ctx, filePath, 'attach', options)
+  const fileNames = await tools.saveFile(ctx, filePath, 'attach', options)
     .catch(err => logger.error(`${err.message}`));
   if (!fileNames || fileNames.length === 0) return endfor(ET.文件上传失败);
 
@@ -61,17 +66,16 @@ async function uploadAttach(ctx) {
     }
   }).catch(err => logger.error(`attach.upload查询attach失败,${err.message}`));
 
-  // const url = `/attach/download/${postId}/${user.Id}/${fileName}`;
-  const fileName = fileNames[0].filename;
+  const fileName = fileNames[0].fileName;
   if (attach) {
     attach = await attach.update({
       Name: fileName
     }).catch(err => logger.error(`attach.upload更新attach失败,${err.message}`))
   } else {
     attach = await Attach.create({
-      PostId: +id, UserId: userId,
+      PostId: +id, UserId: user.Id,
       Name: fileName
-    }).catch(error => logger.error(`attach.upload创建attach失败,${err.message}`));
+    }).catch(err => logger.error(`attach.upload创建attach失败,${err.message}`));
   }
   if (!attach) return endfor(ET.数据异常);
 
@@ -85,12 +89,15 @@ async function uploadAttach(ctx) {
 async function getList({ params, user, endfor }) {
   const { id } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (!isNaN(id)) return endfor(ET.参数内容不合法);
+  if (!checkpara_int(id)) return endfor(ET.参数内容不合法);
 
-  if (user.IsAdmin) return endfor(ET.没有权限);
+  if (user.IsAdmin !== 1) return endfor(ET.没有权限);
 
-  const post = await Post.findById(id, {
-    where: { State: 0 }
+  const post = await Post.findOne({
+    where: { 
+      Id: +id,
+      State: 0 
+    }
   }).catch(err => logger.error(`attach.getlist查询post失败,${err.message}`));
   if (!post) return endfor(ET.记录不存在);
 
@@ -99,7 +106,7 @@ async function getList({ params, user, endfor }) {
   const attaches = await Attach.findAll({
     attributes: ['Id', 'Name', 'create_time'],
     where: {
-      PostId: id,
+      PostId: +id,
       State: 0
     },
     include: {
@@ -115,30 +122,33 @@ async function getList({ params, user, endfor }) {
 }
 
 /**
- * 获取用户在某帖子上传的附件信息
+ * 获取自己在某帖子上传的附件信息
  * @param {} param0 
  */
 async function getInfo({ params, user, endfor }) {
   const { id } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (!isNaN(id)) return endfor(ET.参数内容不合法);
+  if (!checkpara_int(id)) return endfor(ET.参数内容不合法);
 
-  const post = await Post.findById(id, {
+  const post = await Post.findOne({
     where: {
+      Id: +id,
       State: 0
     }
   }).catch(err => logger.error(`attach.getinfo查询post失败,${err.message}`));
+  if (!post) return endfor(ET.记录不存在);
 
   //省略校验post是否允许上传附件，用户是否有权限上传
   const attach = await Attach.find({
+    attributes: ['Id', 'Name', 'create_time' ],
     where: {
       UserId: user.Id,
-      PostId: id,
+      PostId: +id,
     }
   }).catch(err => logger.error(`attach.getinfo查询attach失败,${err.message}`));
   if (!attach) return endfor(ET.记录不存在);
 
-  return endfor(ET.成功, { attach });
+  return endfor(ET.成功, attach);
 }
 
 /**
@@ -149,9 +159,12 @@ async function download(ctx) {
   const { params, user, endfor } = ctx;
   const { id } = params;
   if (!id) return endfor(ET.缺少必须参数);
-  if (!isNaN(id)) return endfor(ET.参数内容不合法);
+  if (!checkpara_int(id)) return endfor(ET.参数不合法);
 
-  const attach = await Attach.findById(id, {
+  const attach = await Attach.findOne({
+    where: {
+      Id: +id
+    },
     include: {
       model: Post,
       where: { State: 0 },
@@ -163,11 +176,9 @@ async function download(ctx) {
   if (attach.Post.UserId !== user.Id)
     return endfor(ET.没有权限);
 
-  const separator = config.isWindows ? '\\' : '/';
-  const filePath = `${config.attachPath}${separator}${id}${separator}${user.Id}`;
-  const exist = fs.existsSync(filePath);
-  if (!exist) return endfor(ET.文件不存在);
+  const filePath = `${config.attachPath}/${attach.Post.Id}/${user.Id}`;
+  if (!fs.existsSync(filePath)) return endfor(ET.文件不存在);
 
-  ctx.attachment(attach.fileName);
-  await send(ctx, fileName, { root: filePath });
+  ctx.attachment(attach.Name);
+  await send(ctx, attach.Name, { root: filePath });
 }

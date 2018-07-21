@@ -42,7 +42,7 @@ module.exports = function (sequelize, DataTypes) {
       },
       AllowAttach: {
         type: DataTypes.TINYINT,
-        field: 'attach',
+        field: 'is_attach',
         comment: '是否允许上传附件',
         allowNull: false,
         defaultValue: 0
@@ -77,7 +77,7 @@ module.exports = function (sequelize, DataTypes) {
   );
 
   Post.ESTATE = {
-    启用: 0,
+    正常: 0,
     草稿: 1,
     删除: 2
   };

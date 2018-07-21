@@ -25,8 +25,8 @@ async function login(ctx) {
   const { params, endfor } = ctx;
   const { number, pass } = params;
   if (!(number && pass)) return endfor(ET.缺少必须参数);
-  if (!checkpara_str(number, 1, 16) || !checkpara_str(pass, 32, 32))
-    return endfor(ET.参数不合法);
+  if (!checkpara_str(number, 1, 16)) return endfor(ET.参数不合法);
+  if(!checkpara_str(pass, 32, 32)) return endfor(ET.参数不合法);
 
   const user = await User.find({
     attributes: ['Number', 'Pass'],
@@ -52,8 +52,8 @@ async function login(ctx) {
 async function changePass({ params, user, endfor }) {
   const { pass, newpass } = params;
   if (!(pass && newpass)) return endfor(ET.缺少必须参数);
-  if (!checkpara_str(pass, 32, 32) || !checkpara_str(newpass, 32, 32)) 
-    return endfor(ET.参数不合法);
+  if (!checkpara_str(pass, 32, 32)) return endfor(ET.参数不合法);
+  if (!checkpara_str(newpass, 32, 32)) return endfor(ET.参数不合法);
   if (user.pass != pass) return endfor(ET.密码不正确);
 
   const newUser = await user.update({ Pass: newpass })

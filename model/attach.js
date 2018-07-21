@@ -36,12 +36,6 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         comment: ''
       },
-      Url: {
-        type: DataTypes.STRING(128),
-        field: 'url',
-        allowNull: false,
-        comment: ''
-      },
       State: {
         type: DataTypes.TINYINT,
         field: 'state',

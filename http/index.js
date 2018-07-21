@@ -47,7 +47,7 @@ app.use(async (ctx, next) => {
 });
 
 app.use(checkLogin);
-// app.use(checkPrivileg);
+app.use(checkPrivileg);
 
 app.use(router.routes());
 

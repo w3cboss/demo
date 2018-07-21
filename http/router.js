@@ -1,7 +1,6 @@
 'use strict';
 
 const Router = require('koa-router');
-const multer = require('./multer');
 
 const admin = require('../controller/admin');
 const user = require('../controller/user');
@@ -22,7 +21,8 @@ router.all('/admin/import_users', admin.importUsers);
 router.all('/admin/update_user', admin.updateUser);
 router.all('/admin/get_postpage', admin.getPostPage);
 router.all('/admin/update_post', admin.updatePost);
-router.all('/admin/get_crousellist', admin.getCarouselList);
+router.all('/admin/get_carousellist', admin.getCarouselList);
+router.all('/admin/get_carouselinfo', admin.getCarouselInfo);
 router.all('/admin/add_carousel', admin.addCarousel);
 router.all('/admin/update_carousel', admin.updateCarousel);
 
@@ -35,7 +35,12 @@ router.all('/user/get_info', user.getInfo);
 router.all('/post/get_info', post.getInfo);
 router.all('/post/get_page', post.getPage);
 router.all('/post/publish', post.publish);
-router.all('/post/delete', post.del);
+router.all('/post/delete', post.deletePost);
+router.all('/post/get_detail', post.getDetail);
+router.all('/post/get_replypage', post.getReplyPage);
+router.all('/post/send_reply', post.sendReply);
+router.all('/post/delete_reply', post.deleteReply);
+router.all('/post/get_tippage', post.getTipPage);
 
 router.all('/attach/get_info', attach.getInfo);
 router.all('/attach/get_list', attach.getList);

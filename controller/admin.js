@@ -70,7 +70,7 @@ async function addLevel({ params, endfor }) {
  * @param {object} params
  * @param {string} params.id 
  * @param {string} params.name
- * @param {string} params.state 0-启用 1-禁用
+ * @param {string} params.state 0-正常 1-禁用
  * @param {string} params.type 0-上移 1-下移
  * @return {object} 
  */
@@ -78,8 +78,9 @@ async function updateLevel({ params, endfor }) {
   const { id, name, state, type } = params;
   if (!id) return endfor(ET.缺少必须参数);
   if (!checkpara_int(id)) return endfor(ET.参数不合法);
-  if (!checkpara_int(type, 1, 2) || !checkpara_int(state, 0, 1) || !checkpara_str(name, 1, 16))
-    return endfor(ET.参数不合法);
+  if (!checkpara_int(type, 1, 2)) return endfor(ET.参数不合法);
+  if (!checkpara_int(state, 0, 1)) return endfor(ET.参数不合法);
+  if (!checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
 
   let level = await Level.findById(+id)
     .catch(err => logger.error(`admin.updateLevel查询1失败，${err.message}`));
@@ -140,11 +141,12 @@ async function getDeptList({ params, endfor }) {
  * @param {*} params.name 部门名称
  */
 async function addDept({ params, endfor }) {
-  const { levelId, name } = params;
-  if (!(levelId && name)) return endfor(ET.缺少必须参数);
-  if (!checkpara_int(levelId) || !checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
+  const { level_id, name } = params;
+  if (!(level_id && name)) return endfor(ET.缺少必须参数);
+  if (!checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
+  if (!checkpara_int(level_id)) return endfor(ET.参数不合法);
 
-  const level = await Level.findById(+levelId,
+  const level = await Level.findById(+level_id,
     { where: { State: 0 } }
   ).catch(err => `admin.addDept查询level失败，${err.message}`);
   if (!level) return endfor(ET.记录不存在);
@@ -155,7 +157,7 @@ async function addDept({ params, endfor }) {
   if (dept) return endfor(ET.记录已存在);
 
   dept = await Dept.create({
-    Name: name, LevelId: +levelId
+    Name: name, LevelId: +level_id
   }).catch(err => `admin.addDept查询dept失败，${err.message}`);
 
   return endfor(dept ? ET.成功 : ET.数据异常);
@@ -171,8 +173,9 @@ async function addDept({ params, endfor }) {
 async function updateDept({ params, endfor }) {
   const { id, name, state } = params;
   if (!id || !(name || state)) return endfor(ET.缺少必须参数);
-  if (!checkpara_int(id) || !checkpara_str(name, 1, 16) || !checkpara_int(state, 0, 1)) 
-    return endfor(ET.参数不合法);
+  if (!checkpara_int(id)) return endfor(ET.参数不合法);
+  if (!checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
+  if (!checkpara_int(state, 0, 1)) return endfor(ET.参数不合法);
 
   let dept = await Dept.findOne({
     where: { Id: +id }
@@ -199,13 +202,13 @@ async function updateDept({ params, endfor }) {
  * @param {*} param0 
  */
 async function getUserPage({ params, endfor }) {
-  const { deptId, key, page = 1, size = 10 } = params;
+  const { dept_id, key, page = 1, size = 10 } = params;
   const where = {};
-  if (!checkpara_int(deptId) || !checkpara_str(key, 1))
-    return endfor(ET.参数不合法); 
-  if (deptId) where.DeptId = { $in: deptId.split(',') };
-  if (key) where.Key = { $like: `%${key}%` };
+  if (!checkpara_int(dept_id)) return endfor(ET.参数不合法);
+  if (!checkpara_str(key, 1, 30)) return endfor(ET.参数不合法);
 
+  if (dept_id) where.DeptId = { $in: dept_id.split(',') };
+  if (key) where.Key = { $like: `%${key}%` };
   const result = await User.findAndCountAll({
     where,
     raw: true,
@@ -226,11 +229,12 @@ async function getUserPage({ params, endfor }) {
  * @param {*} params.deptid
  */
 async function addUser({ params, endfor }) {
-  const { number, name, deptId } = params;
-  if (!(number && name && deptId))
+  const { number, name, dept_id } = params;
+  if (!(number && name && dept_id))
     return endfor(ET.缺少必须参数);
-  if (!checkpara_int(deptId) || !checkpara_str(name, 1, 16) || !checkpara_str(number, 1, 32)) 
-    return endfor(ET.参数不合法);
+  if (!checkpara_int(dept_id)) return endfor(ET.参数不合法);
+  if (!checkpara_str(number, 1, 32)) return endfor(ET.参数不合法);
+  if (!checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
 
   let user = await User.findOne({
     where: {
@@ -241,12 +245,12 @@ async function addUser({ params, endfor }) {
   if (user) return endfor(ET.记录已存在);
 
   const dept = await Dept.findOne({
-    where: { Id: +deptId }
+    where: { Id: +dept_id }
   }).catch(err => logger.error(`admin.addUser查询dept失败，${err.message}`));
   if (!dept) return endfor(ET.记录不存在);
 
   user = await User.create({
-    Number: number, Name: name, DeptId: +deptId,
+    Number: number, Name: name, DeptId: +dept_id,
     Pass: tools.generatePass(number),
     Key: `${name}_${number}`, Avater: config.defaultAvater
   }).catch(err => logger.error(`admin.addUser新增失败，${err.message}`));
@@ -329,13 +333,17 @@ async function importUsers(ctx) {
  * @param {*} params
  */
 async function updateUser({ params, endfor }) {
-  const { id, pass, number, name, deptId, isAdmin, state, privilege } = params;
-  if (!id || !(number || name || deptId || pass || isadmin || state))
+  const { id, pass, number, name, dept_id, is_admin, state, privilege } = params;
+  if (!id || !(number || name || dept_id || pass || is_admin || state))
     return endfor(ET.缺少必须参数);
-  if (!checkpara_int(id) || !checkpara_str(pass, 1, 32) || !checkpara_str(number, 1, 32) ||
-      !checkpara_str(name, 1, 16) || !checkpara_int(deptId) || !checkpara_int(isAdmin, 0, 1) ||
-      !checkpara_int(state, 0, 1) || !checkpara_str(privilege)) 
-    return endfor(ET.参数不合法);
+  if (!checkpara_int(id)) return endfor(ET.参数不合法);
+  if (!checkpara_str(pass, 1, 32)) return endfor(ET.参数不合法);
+  if (!checkpara_str(number, 1, 32)) return endfor(ET.参数不合法);
+  if (!checkpara_str(name, 1, 16)) return endfor(ET.参数不合法);
+  if (!checkpara_int(dept_id)) return endfor(ET.参数不合法);
+  if (!checkpara_int(is_admin, 0, 1)) return endfor(ET.参数不合法);
+  if (!checkpara_int(state, 0, 1)) return endfor(ET.参数不合法);
+  if (!checkpara_str(privilege)) return endfor(ET.参数不合法);
 
   let types = [];
   if (privilege) {
@@ -364,8 +372,8 @@ async function updateUser({ params, endfor }) {
     if (entity) return endfor(ET.记录已存在);
   }
 
-  if (deptId) {
-    const dept = await Dept.findById(+deptId, {
+  if (dept_id) {
+    const dept = await Dept.findById(+dept_id, {
       where: { State: 0 }
     }).catch(err => logger.error(`updateUser查询dept失败，${err.message}`));
     if (!dept) return endfor(ET.记录不存在);
@@ -382,18 +390,18 @@ async function updateUser({ params, endfor }) {
       const values = {};
       if (number) values.Number = number;
       if (name) values.Name = name;
-      if (deptId) values.DeptId = +deptId;
+      if (dept_id) values.DeptId = +dept_id;
       if (pass) values.Pass = pass;
-      if (isAdmin) values.IsAdmin = isAdmin;
-      if (state) values.State = state;
+      if (is_admin) values.IsAdmin = +is_admin;
+      if (state) values.State = +state;
       if (number || name)
         values.Key = `${name || user.Name}_${number || user.Number}`
 
       return user.update(values);
     })
-}).catch (err => logger.error(`admin.updateUser更新失败,${err.message}`));
+  }).catch(err => logger.error(`admin.updateUser更新失败,${err.message}`));
 
-return endfor(user ? ET.成功 : ET.数据异常);
+  return endfor(user ? ET.成功 : ET.数据异常);
 }
 
 /**
@@ -402,11 +410,9 @@ return endfor(user ? ET.成功 : ET.数据异常);
  */
 async function getPostPage({ params, endfor }) {
   const { key, page = 1, size = 20 } = params;
-  if (page <= 0 || size <= 0)
-    return endfor(ET.缺少必须参数);
   if (!checkpara_str(key)) return endfor(ET.参数不合法);
 
-  const where = { State: Post.ESTATE.启用 };
+  const where = { State: Post.ESTATE.正常 };
   if (key) where.Title = { $like: `%${key}%` };
 
   const results = await Post.findAndCountAll({
@@ -490,16 +496,23 @@ async function getCarouselInfo({ params, endfor }) {
   if (!id) return endfor(ET.缺少必须参数);
   if (!checkpara_int(id)) return endfor(ET.参数内容不合法);
 
-  const carousels = await Carousel.findById(id, {
-    where: { State: 0 },
+  const carousel = await Carousel.findOne({
+    where: {
+      Id: +id,
+      State: 0
+    },
     include: {
       model: Post,
-      attributes: ['Id', 'Title']
+      attributes: ['Id', 'Title'],
+      include: {
+        model: User,
+        attributes: ['Id', 'Name']
+      }
     }
   }).catch(err => logger.error(`admin.getCarouselInfo查询失败,${err.message}`));
-  if (!carousels) return endfor(ET.记录不存在);
+  if (!carousel) return endfor(ET.记录不存在);
 
-  return endfor(ET.成功, { items: carousels });
+  return endfor(ET.成功, carousel);
 }
 
 /**
@@ -507,13 +520,17 @@ async function getCarouselInfo({ params, endfor }) {
  * @param {} param0 
  */
 async function addCarousel({ params, user, endfor }) {
-  const { title, url, postId } = params;
-  if (!(url && postId))
+  const { title, url, post_id } = params;
+  if (!(url && post_id))
     return endfor(ET.缺少必须参数);
-  if (!checkpara_str(url, 1, 128) || !checkpara_str(title, 1, 64) || !checkpara_int(postId))
-    return endfor(ET.参数不合法);
 
-  const post = await Post.findById(postId, {
+  if (!checkpara_str(title, 1, 64)) return endfor(ET.参数不合法);
+  if (!checkpara_int(post_id)) return endfor(ET.参数不合法);
+
+  const regex = /\/img\/\d{6}\/\d{4,}\/[a-f0-9]{32}.\w+/;
+  if (!regex.test(url)) return endfor(ET.参数不合法);
+
+  const post = await Post.findById(post_id, {
     where: { State: 0 }
   }).catch(err => logger.error(`admin.addCarousel查询post失败,${err.message}`));
   if (!post) return endfor(ET.记录不存在);
@@ -525,7 +542,7 @@ async function addCarousel({ params, user, endfor }) {
       { where: { State: 0 } }
     ).then(() =>
       Carousel.create({
-        PostId: postId, Title: title,
+        PostId: post_id, Title: title,
         UserId: user.Id, Url: url
       })
     )
@@ -540,34 +557,38 @@ async function addCarousel({ params, user, endfor }) {
  * @param {*} param0 
  */
 async function updateCarousel({ params, endfor }) {
-  const { id, postId, title, type, state } = params;
+  const { id, post_id, title, type, state } = params;
 
-  if (!id || !(postId && title && type && state))
+  if (!id || !(post_id || title || type || state))
     return endfor(ET.缺少必须参数);
-  if (!checkpara_int(id) || !checkpara_int(postId) || !checkpara_int(state, 0 ,1))
-    return endfor(ET.参数内容不合法);
+  if (!checkpara_int(id)) return endfor(ET.参数内容不合法);
+  if (!checkpara_int(post_id)) return endfor(ET.参数内容不合法);
+  if (!checkpara_int(state, 0, 1)) return endfor(ET.参数内容不合法);
 
-  let carousel = await Carousel.findById(id, {
-    where: { State: 0 }
+  let carousel = await Carousel.findOne({
+    where: {
+      Id: +id,
+      State: 0
+    }
   }).catch(err => logger.error(`admin.updateCarousel查询1失败，${err.message}`));
   if (!carousel) return endfor(ET.记录不存在);
 
   let count = 0;
-  const update = {};
-  if (title) update.Title = title;
-  if (state) update.State = state;
-  if (postId) {
-    const post = Post.findById(postId, {
+  const value = {};
+  if (title) value.Title = title;
+  if (state) value.State = +state;
+  if (post_id) {
+    const post = await Post.findById(+post_id, {
       where: { State: 0 }
     }).catch(err => `admin.updateCarousel查询post失败,${err.message}`);
     if (!post) return endfor(ET.记录不存在);
 
-    update.PostId = postId;
+    value.PostId = +post_id;
   }
 
-  if (lodash.keys(update).length > 0) {
-    carousel = carousel.update(update)
-      .catch(err => logger.error(`admin.uupdateCarousel更新1失败,${err.message}`));
+  if (lodash.keys(value).length > 0) {
+    carousel = await carousel.update(value)
+      .catch(err => logger.error(`admin.updateCarousel更新1失败,${err.message}`));
     if (!carousel) return endfor(ET.数据异常);
   }
 
@@ -575,7 +596,7 @@ async function updateCarousel({ params, endfor }) {
     const op = {
       where: { State: 0 }
     };
-    if (type === 0) { //上移
+    if (type == 1) { //上移
       op.where.Rank = { $gt: carousel.Rank };
       op.order = [['Rank', 'ASC']]
     }
@@ -589,10 +610,9 @@ async function updateCarousel({ params, endfor }) {
     if (!dstCarousel) return endfor(ET.记录不存在);
 
     const rank = carousel.Rank;
-    let count = 0;
     //开启事务更新
     carousel = await mysql.transaction(() => {
-      carousel.update({ Rank: dstCarousel.Rank })
+      return carousel.update({ Rank: dstCarousel.Rank })
         .then(() => dstCarousel.update({ Rank: rank }))
     }).catch(err => logger.error(`admin.updateCarousel更新2失败`));
   }
